@@ -1,0 +1,45 @@
+{
+  "name": "mailspring-offline-translator",
+  "version": "1.0.0",
+  "description": "Private, zero-cloud offline email translator for Mailspring using Apple Translation Framework and native CTranslate2.",
+  "main": "lib/main.js",
+  "displayName": "Mailspring Offline Translator",
+  "title": "Offline Translator",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bispitalieri/mailspring-offline-translator"
+  },
+  "license": "MIT",
+  "engines": {
+    "mailspring": ">=1.6.3"
+  },
+  "keywords": [
+    "mailspring",
+    "plugin",
+    "offline",
+    "translation",
+    "privacy",
+    "apple-translation",
+    "ctranslate2"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "package": "bash scripts/package-plugin.sh"
+  },
+  "windowTypes": {
+    "default": true,
+    "composer": true
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "ctranslate2": "^1.0.0",
+    "languagedetect": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

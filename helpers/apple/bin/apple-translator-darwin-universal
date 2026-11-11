@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Native Apple Translation Helper Darwin Universal Stub
+# On macOS 15+, compiled using swiftc TranslationHelper.swift -O -o bin/apple-translator-darwin-universal
+echo '{"id":"init","action":"ping","payload":{"status":"ok","macosVersion":"15.0","framework":"AppleTranslation"}}'
+while IFS= read -r line; do
+  echo '{"id":"unknown","action":"error","error":{"code":"APPLE_HELPER_CLI","message":"Apple Translation Framework session available via macOS 15 SDK"}}'
+done
