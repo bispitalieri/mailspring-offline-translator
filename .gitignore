@@ -9,8 +9,6 @@ coverage/
 .idea
 dist-package/
 lib/
-skills/
-.kilo
 
 ### Node template
 # Logs

@@ -37,6 +37,7 @@
     "languagedetect": "^2.0.0"
   },
   "devDependencies": {
+    "@electron/remote": "^2.1.2",
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",

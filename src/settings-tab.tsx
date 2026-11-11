@@ -16,6 +16,7 @@ import React, { useEffect, useState } from './react-runtime';
 import { TranslationManager } from './translation-manager';
 import { LanguagePair, ModelPackage, PluginSettings, ProviderInfo } from './types';
 import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from './bcp47';
+import { confirmationWindow } from './confirmation-window';
 
 export const OfflineTranslatorSettingsTab: React.FC<{
   manager?: TranslationManager;
@@ -35,7 +36,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   const [installingModel, setInstallingModel] = useState<string | null>(null);
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
-  const [confirmModal, setConfirmModal] = useState<ModelPackage | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
 
   const languages = getCommonLanguages();
@@ -62,7 +62,13 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   };
 
   const handleRequestDownload = (pkg: ModelPackage) => {
-    setConfirmModal(pkg);
+    confirmationWindow.show({
+      model: pkg,
+      onConfirm: executeInstall,
+      onCancel: () => {
+        // User cancelled - do nothing
+      },
+    });
   };
 
   const refreshInstalledModels = async () => {
@@ -130,7 +136,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   }, [activeSubTab, manager]);
 
   const executeInstall = async (pkg: ModelPackage) => {
-    setConfirmModal(null);
     const key = `${pkg.fromCode}->${pkg.toCode}`;
     setInstallingModel(key);
     setInstallProgress({ percent: 0, message: 'Starting model installation...' });
@@ -532,55 +537,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
         </div>
       )}
 
-      {/* Explicit User Consent Modal for Model Download */}
-      {confirmModal && (
-        <div className="offline-translator-confirm-backdrop">
-          <div className="offline-translator-confirm-modal w-full max-w-md p-6">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-600/20 text-cyan-400">
-                📥
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-neutral-100">Confirm Model Download</h3>
-                <p className="text-xs text-neutral-400">Explicit user consent required</p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2 text-xs text-neutral-300">
-              <p>
-                You are about to download the offline neural translation package for:
-              </p>
-              <div className="rounded bg-neutral-950 p-2.5 font-medium text-cyan-300">
-                {confirmModal.fromName} ({confirmModal.fromCode}) → {confirmModal.toName} ({confirmModal.toCode})
-              </div>
-              <div className="flex justify-between text-neutral-400 pt-1">
-                <span>Download size:</span>
-                <span className="font-semibold text-neutral-200">
-                  {confirmModal.sizeMB ? `~${confirmModal.sizeMB} MB` : 'Not provided by Argos'}
-                </span>
-              </div>
-              <p className="text-[11px] text-neutral-400">
-                Once downloaded, this model will be stored locally in Mailspring's offline-translation-models folder and will perform translations completely offline without network access.
-              </p>
-            </div>
-
-            <div className="mt-6 flex justify-end space-x-2 text-xs">
-              <button
-                onClick={() => setConfirmModal(null)}
-                className="rounded border border-neutral-700 px-3 py-1.5 font-medium text-neutral-300 hover:bg-neutral-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => executeInstall(confirmModal)}
-                className="rounded bg-cyan-600 px-4 py-1.5 font-medium text-white hover:bg-cyan-500"
-              >
-                Approve & Download
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
