@@ -85,9 +85,7 @@ export class ProcessManager {
     const platform = (typeof process !== 'undefined' && (process.platform as SupportedPlatform)) || 'darwin';
     const arch = typeof process !== 'undefined' ? process.arch : 'arm64';
 
-    const binaryName = arch === 'arm64'
-      ? 'apple-translator-darwin-arm64'
-      : 'apple-translator-darwin-universal';
+    const binaryName = 'apple-translator-darwin-universal';
 
     const p = getNativeNodeModule<any>('path');
     const f = getNativeNodeModule<any>('fs');

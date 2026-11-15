@@ -91,9 +91,9 @@ export const MessageTranslatorHeader: React.FC<{
   };
 
   return (
-    <div className="offline-translator-header border-b border-neutral-700/50 bg-neutral-900/70 px-4 py-2.5 text-xs text-neutral-200">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center space-x-2">
+    <div className="offline-translator-header">
+      <div className="offline-translator-header-row">
+        <div className="offline-translator-header-left">
           {/* Status or Translate Button */}
           {!translationResult ? (
             <button
@@ -117,24 +117,19 @@ export const MessageTranslatorHeader: React.FC<{
               )}
             </button>
           ) : (
-            <div className="flex items-center space-x-1.5">
-              <span className="rounded bg-neutral-800 px-2 py-0.5 text-[11px] font-medium text-neutral-300">
+            <div className="offline-translator-status-badges">
+              <span className="offline-translator-lang-badge">
                 {detectedLang ? getLanguageDisplayName(detectedLang) : 'Detected'} → {getLanguageDisplayName(targetLang)}
               </span>
-              <span className="rounded bg-emerald-950/80 px-1.5 py-0.5 text-[10px] text-emerald-400 border border-emerald-800/40">
+              <span className="offline-translator-provider-badge">
                 {translationResult.providerName}
               </span>
-              {translationResult.fromCache && (
-                <span className="rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] text-cyan-400 border border-cyan-800/40">
-                  Cached
-                </span>
-              )}
             </div>
           )}
 
           {/* Target language selector */}
-          <div className="flex items-center space-x-1">
-            <span className="text-neutral-400">To:</span>
+          <div className="offline-translator-lang-selector">
+            <span className="offline-translator-lang-label">To:</span>
             <select
               value={targetLang}
               onChange={(e) => {
@@ -144,7 +139,6 @@ export const MessageTranslatorHeader: React.FC<{
                   handleTranslate(nextLang);
                 }
               }}
-              className="rounded border border-neutral-700 bg-neutral-800 px-2 py-0.5 text-xs text-neutral-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             >
               {languages.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -157,29 +151,23 @@ export const MessageTranslatorHeader: React.FC<{
 
         {/* View mode toggle */}
         {translationResult && (
-          <div className="flex items-center space-x-2">
-            <div className="inline-flex rounded-md bg-neutral-800 p-0.5 border border-neutral-700">
+          <div className="offline-translator-header-right">
+            <div className="offline-translator-view-toggle">
               <button
                 onClick={() => handleViewModeToggle('original')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
-                  viewMode === 'original' ? 'bg-neutral-700 text-white shadow' : 'text-neutral-400 hover:text-white'
-                }`}
+                className={viewMode === 'original' ? 'active' : ''}
               >
                 Original
               </button>
               <button
                 onClick={() => handleViewModeToggle('inline')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
-                  viewMode === 'inline' ? 'bg-neutral-700 text-white shadow' : 'text-neutral-400 hover:text-white'
-                }`}
+                className={viewMode === 'inline' ? 'active' : ''}
               >
                 Translated
               </button>
               <button
                 onClick={() => handleViewModeToggle('split')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
-                  viewMode === 'split' ? 'bg-neutral-700 text-white shadow' : 'text-neutral-400 hover:text-white'
-                }`}
+                className={viewMode === 'split' ? 'active' : ''}
               >
                 Side-by-Side
               </button>
@@ -190,9 +178,9 @@ export const MessageTranslatorHeader: React.FC<{
               onClick={() => handleTranslate()}
               disabled={isTranslating}
               title="Re-translate with chosen options"
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+              className="offline-translator-retranslate-btn"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
@@ -202,7 +190,7 @@ export const MessageTranslatorHeader: React.FC<{
 
       {/* Error state */}
       {error && (
-        <div className="mt-2 rounded bg-rose-950/70 p-2 text-[11px] text-rose-300 border border-rose-800/40">
+        <div className="offline-translator-header-error">
           ⚠️ {error}
         </div>
       )}

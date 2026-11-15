@@ -12,8 +12,8 @@ import {
 } from '../types';
 
 export class WindowsAiProvider implements ITranslationProvider {
-  private isWindows: boolean;
-  private hasNPU: boolean = false;
+  private readonly isWindows: boolean;
+  private readonly hasNPU: boolean = false;
   private osBuild: number = 0;
 
   constructor() {
@@ -24,11 +24,11 @@ export class WindowsAiProvider implements ITranslationProvider {
   private probeHardware(): void {
     if (!this.isWindows) return;
     try {
-      const os = require('os');
+      const os = require('node:os');
       const release = os.release();
       const parts = release.split('.');
       if (parts.length >= 3) {
-        this.osBuild = parseInt(parts[2], 10) || 0;
+        this.osBuild = Number.parseInt(parts[2], 10) || 0;
       }
     } catch {
       this.osBuild = 0;

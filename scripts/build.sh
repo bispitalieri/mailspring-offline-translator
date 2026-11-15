@@ -26,9 +26,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   echo "[2/4] macOS detected: Compiling Apple Translation Helper..."
   if command -v swiftc >/dev/null 2>&1; then
     mkdir -p helpers/apple/bin
-    swiftc -O -target arm64-apple-macos15.0 helpers/apple/TranslationHelper.swift -o helpers/apple/bin/apple-translator-darwin-arm64 || \
-    swiftc -O helpers/apple/TranslationHelper.swift -o helpers/apple/bin/apple-translator-darwin-universal || \
-    echo "Notice: Swift compiler on this machine does not target macOS 15+ SDK. Using universal stub."
+    swiftc -parse-as-library -O helpers/apple/TranslationHelper.swift -o helpers/apple/bin/apple-translator-darwin-universal && \
+    echo "✓ Apple Translation Helper compiled successfully." || \
+    echo "Warning: Failed to compile Apple Translation Helper. Using existing binary or stub."
   else
     echo "Notice: swiftc not found. Using precompiled Apple helper stub."
   fi

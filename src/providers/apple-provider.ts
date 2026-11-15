@@ -19,8 +19,8 @@ import { ProcessManager, ExecutableResolution } from '../process-manager';
 export class AppleTranslationProvider implements ITranslationProvider {
   private ipcClient: JsonLinesIpcClient | null = null;
   private cachedPairs: LanguagePair[] | null = null;
-  private isMacOS: boolean;
-  private resolution: ExecutableResolution;
+  private readonly isMacOS: boolean;
+  private readonly resolution: ExecutableResolution;
 
   constructor() {
     this.isMacOS = typeof process !== 'undefined' && process.platform === 'darwin';
@@ -28,6 +28,12 @@ export class AppleTranslationProvider implements ITranslationProvider {
   }
 
   public getInfo(): ProviderInfo {
+    let unavailabilityReason = undefined;
+    if(!this.isMacOS){
+      unavailabilityReason = 'Apple Translation Framework is only available on macOS 15.0 or later.';
+    }else if(!this.resolution.exists){
+      unavailabilityReason = this.resolution.error;
+    }
     return {
       id: 'apple',
       name: 'Apple Translation Framework',
@@ -37,11 +43,7 @@ export class AppleTranslationProvider implements ITranslationProvider {
       minOSVersion: 'macOS 15.0 Sequoia',
       requiresNPU: false,
       isAvailable: this.isMacOS && this.resolution.exists,
-      unavailabilityReason: !this.isMacOS
-        ? 'Apple Translation Framework is only available on macOS 15.0 or later.'
-        : !this.resolution.exists
-        ? this.resolution.error
-        : undefined,
+      unavailabilityReason: unavailabilityReason,
       isStandaloneRuntime: true,
       runtimePath: this.resolution.path,
     };
@@ -55,7 +57,7 @@ export class AppleTranslationProvider implements ITranslationProvider {
     try {
       const client = this.getIpcClient();
       const res = await client.sendRequest('ping', {}, 2000);
-      return res && res.status === 'ok';
+      return res?.status === 'ok';
     } catch {
       return false;
     }
@@ -160,15 +162,13 @@ export class AppleTranslationProvider implements ITranslationProvider {
   }
 
   private getIpcClient(): JsonLinesIpcClient {
-    if (!this.ipcClient) {
-      this.ipcClient = new JsonLinesIpcClient(
-        () => {
-          return ProcessManager.spawnWorker(this.resolution.path);
-        },
-        15000,
-        'AppleTranslationHelper'
-      );
-    }
+    this.ipcClient ??= new JsonLinesIpcClient(
+      () => {
+        return ProcessManager.spawnWorker(this.resolution.path);
+      },
+      15000,
+      'AppleTranslationHelper'
+    );
     return this.ipcClient;
   }
 }

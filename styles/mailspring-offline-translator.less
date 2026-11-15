@@ -1,155 +1,189 @@
 @import 'ui-variables';
 
+// ============================================================
+// Shared base styles
+// ============================================================
+
 .offline-translator-header,
 .offline-translator-settings {
   color: @text-color;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.6;
 }
+
+// ============================================================
+// Header (composer toolbar)
+// ============================================================
 
 .offline-translator-header {
   border-bottom: 1px solid @border-color-primary;
-  padding: 10px 14px;
+  padding: 10px 16px;
   background: @background-secondary;
-
-  > div:first-child,
-  > div:first-child > div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  > div:first-child {
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
+  margin-top: 0.8rem;
+  border-radius: 1rem;
 }
 
-.offline-translator-settings {
-  max-width: 900px;
-  padding: 20px;
+// Header row layout
+.offline-translator-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.offline-translator-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.offline-translator-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// Status badges row
+.offline-translator-status-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.offline-translator-lang-badge {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: @font-weight-medium;
   color: @text-color;
+  background: @background-primary;
+}
 
-  > div {
-    margin-bottom: 16px;
-  }
+.offline-translator-provider-badge {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: @font-weight-medium;
+  border: 1px solid color-mix(in srgb, @color-success 25%, transparent);
+  background: color-mix(in srgb, @color-success 10%, @background-primary);
+  color: @color-success;
+}
 
-  > div:first-child {
-    display: flex;
-    gap: 8px;
-    border-bottom: 1px solid @border-color-primary;
-    padding-bottom: 8px;
-  }
+.offline-translator-cache-badge {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: @font-weight-medium;
+  border: 1px solid color-mix(in srgb, @accent-primary 25%, transparent);
+  background: color-mix(in srgb, @accent-primary 10%, @background-primary);
+  color: @accent-primary;
+}
 
-  [class*='rounded-lg'][class*='border'] {
-    border-color: @border-color-primary;
-    background: @background-secondary;
-    padding: 14px;
-  }
+// Language selector
+.offline-translator-lang-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-  [class*='overflow-hidden'][class*='rounded-lg'] {
-    overflow-x: auto;
-  }
+.offline-translator-lang-label {
+  font-size: 12px;
+  color: @text-color-subtle;
+  white-space: nowrap;
+}
 
-  [class*='bg-neutral'] {
-    background-color: @background-secondary;
-  }
-
-  [class*='text-neutral'],
-  [class*='text-white'] {
-    color: @text-color;
-  }
-
-  [class*='text-cyan'] {
-    color: @accent-primary;
-  }
-
-  [class*='text-emerald'] {
-    color: @color-success;
-  }
-
-  [class*='text-rose'] {
-    color: @color-error;
-  }
+// View mode toggle
+.offline-translator-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid @border-color-primary;
+  border-radius: 8px;
+  padding: 2px;
+  background: @background-primary;
 
   button {
-    border: 1px solid @border-color-primary;
-    border-radius: @border-radius-base;
-    padding: 6px 10px;
-    color: @text-color;
-    background: @background-primary;
+    border: none;
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin: 0;
+    background: transparent;
+    color: @text-color-subtle;
+    font-size: 11px;
+    font-weight: @font-weight-medium;
+    line-height: 1.4;
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
 
-    &:hover:not(:disabled) {
-      border-color: @accent-primary;
+    &:hover {
+      color: @text-color;
+      background: transparent;
+    }
+
+    &.active {
       background: @background-secondary;
+      color: @text-color;
     }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    &[class*='bg-cyan'] {
-      border-color: @accent-primary;
-      color: @text-color-inverse;
-      background: @accent-primary;
-
-      &:hover:not(:disabled) {
-        background: @accent-primary-dark;
-      }
-    }
-  }
-
-  select,
-  input:not([type='checkbox']):not([type='radio']) {
-    border: 1px solid @border-color-primary;
-    border-radius: @border-radius-base;
-    color: @text-color;
-    background: @background-primary;
-  }
-
-  input[type='checkbox'],
-  input[type='radio'],
-  progress {
-    accent-color: @accent-primary;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    color: @text-color;
-  }
-
-  th,
-  td {
-    border-bottom: 1px solid @border-color-primary;
-    padding: 9px 10px;
-    text-align: left;
-  }
-
-  tbody tr:hover {
-    background: @background-secondary;
   }
 }
 
-.offline-translator-header {
-  [class*='bg-neutral'] {
-    background-color: @background-secondary;
-  }
+// Re-translate button
+.offline-translator-retranslate-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px;
+  color: @text-color-subtle;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  line-height: 0;
 
-  [class*='text-neutral'],
-  [class*='text-white'] {
-    color: @text-color;
-  }
-
-  [class*='text-cyan'] {
-    color: @accent-primary;
-  }
-
-  select {
-    border: 1px solid @border-color-primary;
-    color: @text-color;
+  &:hover:not(:disabled) {
     background: @background-primary;
+    color: @text-color;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+// Header error box
+.offline-translator-header-error {
+  margin-top: 8px;
+  border: 1px solid color-mix(in srgb, @color-error 30%, transparent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: @color-error;
+  background: color-mix(in srgb, @color-error 6%, @background-primary);
+  line-height: 1.4;
+}
+
+.offline-translator-header select {
+  border: 1px solid @border-color-primary;
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: @text-color;
+  background: @background-primary;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: @accent-primary;
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, @accent-primary 25%, transparent);
   }
 }
 
@@ -157,17 +191,18 @@
   display: inline-flex;
   min-height: 0;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 3px 7px;
+  border-radius: 8px;
+  padding: 6px 12px;
   color: @accent-primary;
   background: transparent;
   box-shadow: none;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: @font-weight-medium;
-  line-height: 1.3;
+  line-height: 1.4;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 
   &:hover:not(:disabled) {
     border-color: color-mix(in srgb, @accent-primary 18%, transparent);
@@ -200,6 +235,584 @@
   }
 }
 
+// ============================================================
+// Settings tab – layout
+// ============================================================
+
+.offline-translator-settings {
+  max-width: 900px;
+  padding: 28px;
+  color: @text-color;
+}
+
+// Subtab navigation
+.offline-translator-subtabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid @border-color-primary;
+  padding-bottom: 0;
+  margin-bottom: 24px;
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+
+  button {
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 10px 4px;
+    margin-bottom: -1px;
+    background: transparent;
+    color: @text-color-subtle;
+    font-size: 12px;
+    font-weight: @font-weight-medium;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+
+    &:hover {
+      color: @text-color;
+      background: transparent;
+      border-color: transparent;
+    }
+
+    &.active {
+      border-bottom-color: @accent-primary;
+      color: @accent-primary;
+      font-weight: @font-weight-semi-bold;
+    }
+  }
+}
+
+// ============================================================
+// Settings tab – cards
+// ============================================================
+
+.offline-translator-card {
+  border: 1px solid @border-color-primary;
+  border-radius: 12px;
+  padding: 20px;
+  background: @background-secondary;
+  margin-bottom: 20px;
+}
+
+.offline-translator-card-title {
+  margin: 0 0 4px;
+  font-size: @font-size-small;
+  font-weight: @font-weight-semi-bold;
+  color: @text-color;
+}
+
+.offline-translator-card-desc {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: @text-color-subtle;
+  line-height: 1.5;
+}
+
+.offline-translator-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+// ============================================================
+// Settings – language row
+// ============================================================
+
+.offline-translator-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.offline-translator-locale-hint {
+  font-size: 11px;
+  color: @text-color-subtle;
+
+  strong {
+    color: @text-color;
+  }
+}
+
+// ============================================================
+// Settings – provider grid
+// ============================================================
+
+.offline-translator-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .offline-translator-provider-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.offline-translator-provider-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid @border-color-primary;
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, @background-primary 60%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    border-color: @border-color-tertiary;
+  }
+
+  &.active {
+    border-color: @accent-primary;
+    background: color-mix(in srgb, @accent-primary 6%, @background-primary);
+  }
+}
+
+.offline-translator-provider-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.offline-translator-provider-label {
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+  color: @text-color;
+}
+
+.offline-translator-provider-desc {
+  margin-top: 4px;
+  margin-left: 24px;
+  font-size: 11px;
+  color: @text-color-subtle;
+  line-height: 1.4;
+}
+
+// ============================================================
+// Settings – divider & checkboxes
+// ============================================================
+
+.offline-translator-divider {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid @border-color-primary;
+}
+
+.offline-translator-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.offline-translator-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.offline-translator-checkbox-label {
+  display: block;
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+  color: @text-color;
+}
+
+.offline-translator-checkbox-desc {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: @text-color-subtle;
+  line-height: 1.4;
+}
+
+// ============================================================
+// Settings – stats grid
+// ============================================================
+
+.offline-translator-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, @background-primary 50%, transparent);
+}
+
+@media (max-width: 640px) {
+  .offline-translator-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.offline-translator-stat-label {
+  font-size: 10px;
+  font-weight: @font-weight-medium;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: @text-color-subtle;
+}
+
+.offline-translator-stat-value {
+  margin-top: 2px;
+  font-size: @font-size-small;
+  font-weight: @font-weight-semi-bold;
+  color: @text-color;
+}
+
+.offline-translator-success {
+  color: @color-success;
+}
+
+// ============================================================
+// Settings – models tab
+// ============================================================
+
+.offline-translator-models-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.offline-translator-models-disk {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.offline-translator-small-text {
+  font-size: 11px;
+  color: @text-color-subtle;
+}
+
+.offline-translator-disk-value {
+  font-size: @font-size-small;
+  font-weight: @font-weight-semi-bold;
+  color: @accent-primary;
+}
+
+.offline-translator-search-card {
+  padding: 12px;
+}
+
+.offline-translator-search-input {
+  width: 100%;
+  border: 1px solid @border-color-primary;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: @text-color;
+  background: color-mix(in srgb, @background-primary 60%, transparent);
+  font-size: 12px;
+  line-height: 1.4;
+  transition: border-color 0.15s ease;
+
+  &::placeholder {
+    color: @text-color-very-subtle;
+  }
+
+  &:focus {
+    border-color: @accent-primary;
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, @accent-primary 25%, transparent);
+  }
+}
+
+// ============================================================
+// Settings – model table
+// ============================================================
+
+.offline-translator-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid @border-color-primary;
+  border-radius: 12px;
+  background: @background-secondary;
+}
+
+.offline-translator-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: @text-color;
+}
+
+.offline-translator-table thead {
+  border-bottom: 1px solid @border-color-primary;
+  background: color-mix(in srgb, @background-primary 50%, transparent);
+}
+
+.offline-translator-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: @font-weight-medium;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: @text-color-subtle;
+}
+
+.offline-translator-table td {
+  border-bottom: 1px solid @border-color-primary;
+  padding: 10px 14px;
+  line-height: 1.5;
+}
+
+.offline-translator-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.offline-translator-table tbody tr:hover {
+  background: color-mix(in srgb, @background-primary 50%, transparent);
+}
+
+.offline-translator-table-empty {
+  text-align: center !important;
+  color: @text-color-subtle;
+  padding: 16px !important;
+}
+
+.offline-translator-table-pair {
+  font-weight: @font-weight-medium;
+  color: @text-color;
+}
+
+.offline-translator-table-engine {
+  text-transform: uppercase;
+  color: @text-color-subtle;
+}
+
+.offline-translator-table-size {
+  color: @text-color-subtle;
+}
+
+.offline-translator-table-action {
+  text-align: right !important;
+}
+
+.offline-translator-table-status {
+  white-space: nowrap;
+}
+
+.offline-translator-not-installed {
+  color: @text-color-subtle;
+}
+
+// ============================================================
+// Badges
+// ============================================================
+
+.offline-translator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: @font-weight-medium;
+  line-height: 1.4;
+}
+
+.offline-translator-badge-success {
+  border: 1px solid color-mix(in srgb, @color-success 25%, transparent);
+  background: color-mix(in srgb, @color-success 10%, @background-primary);
+  color: @color-success;
+}
+
+// ============================================================
+// Buttons
+// ============================================================
+
+.offline-translator-primary-btn {
+  border: 1px solid @accent-primary;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: @text-color-inverse;
+  background: @accent-primary;
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: @accent-primary-dark;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}
+
+.offline-translator-secondary-btn {
+  border: 1px solid @border-color-primary;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: @text-color;
+  background: @background-primary;
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: @accent-primary;
+    background: @background-secondary;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}
+
+.offline-translator-success-btn {
+  border: 1px solid @color-success;
+  border-radius: 8px;
+  padding: 6px 16px;
+  color: @text-color-inverse;
+  background: @color-success;
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: darken(@color-success, 8%);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+}
+
+.offline-translator-danger-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: @color-error;
+  background: transparent;
+  font-size: 12px;
+  font-weight: @font-weight-medium;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, @color-error 10%, transparent);
+  }
+}
+
+// ============================================================
+// Settings – diagnostics tab
+// ============================================================
+
+.offline-translator-diag-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .offline-translator-diag-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.offline-translator-diag-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid @border-color-primary;
+  border-radius: 12px;
+  padding: 16px;
+  background: color-mix(in srgb, @background-secondary 60%, transparent);
+}
+
+.offline-translator-diag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.offline-translator-diag-name {
+  font-size: 13px;
+  font-weight: @font-weight-semi-bold;
+  color: @text-color;
+}
+
+.offline-translator-diag-badge {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: @font-weight-medium;
+  line-height: 1.4;
+}
+
+.offline-translator-diag-badge-available {
+  border: 1px solid color-mix(in srgb, @color-success 25%, transparent);
+  background: color-mix(in srgb, @color-success 10%, @background-primary);
+  color: @color-success;
+}
+
+.offline-translator-diag-badge-unavailable {
+  border: 1px solid @border-color-primary;
+  background: @background-primary;
+  color: @text-color-subtle;
+}
+
+.offline-translator-diag-version {
+  margin-top: 2px;
+  font-size: 11px;
+  font-family: @font-family-monospace;
+  color: @accent-primary;
+}
+
+.offline-translator-diag-desc {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: @text-color-subtle;
+  line-height: 1.4;
+}
+
+.offline-translator-diag-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid @border-color-primary;
+  font-size: 11px;
+}
+
+.offline-translator-diag-reason {
+  border: 1px solid @border-color-primary;
+  border-radius: 6px;
+  padding: 8px;
+  background: color-mix(in srgb, @background-primary 60%, transparent);
+  color: @text-color-subtle;
+  line-height: 1.4;
+}
+
+.offline-translator-diag-platforms {
+  margin-top: 8px;
+  color: @text-color-subtle;
+  line-height: 1.4;
+}
+
+.offline-translator-diag-platforms-value {
+  color: @text-color;
+}
+
+// ============================================================
+// Composer backdrop & modal
+// ============================================================
+
 .offline-translator-composer-backdrop {
   position: fixed;
   z-index: 1000;
@@ -212,167 +825,275 @@
 }
 
 .offline-translator-composer-modal {
-  border: 1px solid @border-color-primary;
-  border-radius: @border-radius-large;
-  color: @text-color;
-  background: @background-primary;
-  box-shadow: @standard-shadow;
-
-  [class*='border-neutral'] {
-    border-color: @border-color-primary;
-  }
-
-  [class*='bg-neutral'] {
-    background-color: @background-secondary;
-  }
-
-  [class*='text-neutral'],
-  [class*='text-white'] {
-    color: @text-color;
-  }
-
-  [class*='text-cyan'] {
-    color: @accent-primary;
-  }
-
-  [class*='text-emerald'] {
-    color: @color-success;
-  }
-
-  [class*='text-rose'] {
-    color: @color-error;
-  }
-
-  button {
-    border: 1px solid @border-color-primary;
-    border-radius: @border-radius-base;
-    padding: 6px 10px;
-    color: @text-color;
-    background: @background-primary;
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      border-color: @accent-primary;
-      background: @background-secondary;
-    }
-
-    &[class*='bg-cyan'] {
-      border-color: @accent-primary;
-      color: @text-color-inverse;
-      background: @accent-primary;
-    }
-
-    &[class*='bg-emerald'] {
-      border-color: @color-success;
-      color: @text-color-inverse;
-      background: @color-success;
-    }
-  }
-
-  select {
-    border: 1px solid @border-color-primary;
-    color: @text-color;
-    background: @background-primary;
-  }
-
-  .prose {
-    color: @text-color;
-    line-height: 1.5;
-
-    p {
-      margin: 0 0 0.75em;
-    }
-
-    a {
-      color: @text-color-link;
-    }
-  }
-}
-
-.offline-translator-composer-modal {
   display: flex;
   width: 100%;
   max-width: 56rem;
   max-height: 90vh;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid @border-color-primary;
+  border-radius: 16px;
+  color: @text-color;
+  background: @background-primary;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
 
-  > div:first-child,
-  > div:last-child {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 20px;
-  }
+// Modal header
+.offline-translator-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid @border-color-primary;
+}
 
-  > div:first-child {
-    border-bottom: 1px solid @border-color-primary;
+.offline-translator-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-    > div:first-child {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-  }
+.offline-translator-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, @accent-primary 15%, transparent);
+  color: @accent-primary;
 
-  > div:nth-child(2) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    border-bottom: 1px solid @border-color-primary;
-    padding: 10px 20px;
-    background: @background-secondary;
-
-    > div {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-  }
-
-  > div:nth-child(3) {
-    display: grid;
-    min-height: 0;
-    flex: 1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: hidden;
-
-    > div {
-      min-width: 0;
-      overflow: auto;
-      padding: 16px;
-
-      &:last-child {
-        border-left: 1px solid @border-color-primary;
-        background: @background-secondary;
-      }
-    }
-  }
-
-  > div:last-child {
-    border-top: 1px solid @border-color-primary;
-    font-size: @font-size-small;
+  svg {
+    width: 16px;
+    height: 16px;
   }
 }
+
+.offline-translator-modal-title {
+  margin: 0;
+  font-size: @font-size-small;
+  font-weight: @font-weight-semi-bold;
+  color: @text-color;
+}
+
+.offline-translator-modal-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: @text-color-subtle;
+}
+
+.offline-translator-modal-close {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: @text-color-subtle;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: @background-secondary;
+    color: @text-color;
+  }
+}
+
+// Modal toolbar
+.offline-translator-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid @border-color-primary;
+  background: @background-secondary;
+  font-size: 12px;
+}
+
+.offline-translator-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.offline-translator-toolbar-label {
+  color: @text-color-subtle;
+  white-space: nowrap;
+}
+
+.offline-translator-detected-lang {
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: @text-color-subtle;
+  background: @background-primary;
+
+  strong {
+    color: @text-color;
+  }
+}
+
+// Modal comparison panels
+.offline-translator-comparison {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.offline-translator-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px;
+  line-height: 1.6;
+}
+
+.offline-translator-panel-translated {
+  border-left: 1px solid @border-color-primary;
+  background: @background-secondary;
+}
+
+.offline-translator-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.offline-translator-panel-label {
+  font-size: 11px;
+  font-weight: @font-weight-medium;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: @text-color-subtle;
+}
+
+.offline-translator-panel-label-accent {
+  color: @accent-primary;
+}
+
+.offline-translator-hint {
+  font-size: 10px;
+  color: @text-color-subtle;
+}
+
+// Prose content inside modal
+.offline-translator-prose {
+  color: @text-color;
+  line-height: 1.7;
+
+  p {
+    margin: 0 0 1em;
+  }
+
+  a {
+    color: @text-color-link;
+  }
+}
+
+.offline-translator-empty {
+  color: @text-color-very-subtle;
+  font-style: italic;
+}
+
+// Loading state
+.offline-translator-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 160px;
+  color: @text-color-subtle;
+}
+
+.offline-translator-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid color-mix(in srgb, @accent-primary 30%, transparent);
+  border-top-color: @accent-primary;
+  border-radius: 50%;
+  animation: offline-translator-spin 0.7s linear infinite;
+}
+
+.offline-translator-loading-text {
+  font-size: 12px;
+}
+
+// Error box inside modal
+.offline-translator-error-box {
+  border: 1px solid color-mix(in srgb, @color-error 30%, transparent);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  color: @color-error;
+  background: color-mix(in srgb, @color-error 6%, @background-primary);
+  line-height: 1.5;
+}
+
+// Empty state
+.offline-translator-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  font-size: 12px;
+  font-style: italic;
+  color: @text-color-very-subtle;
+}
+
+// Modal footer
+.offline-translator-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-top: 1px solid @border-color-primary;
+  font-size: 12px;
+}
+
+.offline-translator-footer-hint {
+  color: @text-color-subtle;
+}
+
+.offline-translator-footer-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+// ============================================================
+// Composer button in toolbar
+// ============================================================
 
 .offline-translator-composer-btn {
   color: @text-color;
 }
 
-@media (max-width: 640px) {
-  .offline-translator-composer-modal {
-    > div:nth-child(3) {
-      grid-template-columns: minmax(0, 1fr);
+// ============================================================
+// Responsive – modal
+// ============================================================
 
-      > div:last-child {
-        border-top: 1px solid @border-color-primary;
-        border-left: 0;
-      }
-    }
+@media (max-width: 640px) {
+  .offline-translator-comparison {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .offline-translator-panel-translated {
+    border-left: 0;
+    border-top: 1px solid @border-color-primary;
   }
 }
+
+// ============================================================
+// Install progress (table)
+// ============================================================
 
 .offline-translator-install-progress {
   display: inline-flex;
@@ -381,30 +1102,68 @@
   gap: 4px;
   text-align: left;
   white-space: normal;
+  font-size: 12px;
+  color: @accent-primary;
 
   progress {
     width: 100%;
   }
 }
 
+// ============================================================
+// Error box (settings)
+// ============================================================
+
 .offline-translator-error {
-  margin: 12px 0;
+  margin: 16px 0;
   border: 1px solid @color-warning;
-  border-radius: @border-radius-base;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 16px 20px;
   color: @text-color;
   background: @background-secondary;
+  line-height: 1.6;
+  font-size: 12px;
 
   p {
-    margin: 8px 0 0;
+    margin: 10px 0 0;
   }
 
   code {
     display: inline-block;
     margin: 4px;
-    border-radius: @border-radius-small;
-    padding: 2px 5px;
+    border-radius: 6px;
+    padding: 3px 8px;
     color: @text-color;
     background: @background-primary;
+    font-size: 12px;
   }
+}
+
+// ============================================================
+// Shared input styles (used in settings and modal)
+// ============================================================
+
+.offline-translator-settings select,
+.offline-translator-settings input:not([type='checkbox']):not([type='radio']),
+.offline-translator-composer-modal select {
+  border: 1px solid @border-color-primary;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: @text-color;
+  background: @background-primary;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: @accent-primary;
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, @accent-primary 25%, transparent);
+  }
+}
+
+.offline-translator-settings input[type='checkbox'],
+.offline-translator-settings input[type='radio'],
+.offline-translator-settings progress {
+  accent-color: @accent-primary;
 }

@@ -15,16 +15,16 @@ export interface PendingRequest {
 }
 
 export class JsonLinesIpcClient {
-  private pendingRequests: Map<string, PendingRequest> = new Map();
+  private readonly pendingRequests: Map<string, PendingRequest> = new Map();
   private stdoutBuffer = '';
   private sequence = 0;
   private processRef: any = null;
   private isDisposed = false;
 
   constructor(
-    private spawnCommand: () => any,
-    private defaultTimeoutMs = 15000,
-    private processName = 'Worker'
+    private readonly spawnCommand: () => any,
+    private readonly defaultTimeoutMs = 15000,
+    private readonly processName = 'Worker'
   ) {}
 
   public ensureProcess(): any {
@@ -38,7 +38,7 @@ export class JsonLinesIpcClient {
 
     this.processRef = this.spawnCommand();
 
-    if (!this.processRef || !this.processRef.stdout || !this.processRef.stdin) {
+    if (!this.processRef?.stdout || !this.processRef.stdin) {
       throw new Error(`Failed to spawn ${this.processName} process`);
     }
 
@@ -118,7 +118,7 @@ export class JsonLinesIpcClient {
 
       try {
         const parsed: IPCMessage = JSON.parse(line);
-        if (parsed && parsed.id) {
+        if (parsed?.id) {
           const pending = this.pendingRequests.get(parsed.id);
           if (pending) {
             if (parsed.action === 'progress') {
@@ -167,7 +167,7 @@ export class JsonLinesIpcClient {
   }
 
   private rejectAllPending(error: Error): void {
-    for (const [id, req] of this.pendingRequests.entries()) {
+    for (const [_, req] of this.pendingRequests.entries()) {
       clearTimeout(req.timer);
       req.reject(error);
     }

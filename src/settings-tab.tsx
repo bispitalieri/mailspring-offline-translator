@@ -37,6 +37,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const languages = getCommonLanguages();
   const systemLocale = getSystemLocale();
@@ -176,37 +177,36 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     .reduce((acc, curr) => acc + curr.sizeMB, 0);
   const hasKnownInstalledSize = models.some((model) => model.isInstalled && model.sizeMB > 0);
 
+  const filteredModels = models.filter((m) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      m.fromName.toLowerCase().includes(q) ||
+      m.toName.toLowerCase().includes(q) ||
+      m.fromCode.toLowerCase().includes(q) ||
+      m.toCode.toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="offline-translator-settings max-w-4xl space-y-6 text-neutral-200">
+    <div className="offline-translator-settings">
       {/* Subtab Navigation */}
-      <div className="flex border-b border-neutral-800 space-x-6 text-xs font-medium">
+      <div className="offline-translator-subtabs">
         <button
           onClick={() => setActiveSubTab('general')}
-          className={`pb-3 transition ${
-            activeSubTab === 'general'
-              ? 'border-b-2 border-cyan-500 text-cyan-400 font-semibold'
-              : 'text-neutral-400 hover:text-white'
-          }`}
+          className={activeSubTab === 'general' ? 'active' : ''}
         >
           General & Translation Rules
         </button>
         <button
           onClick={() => setActiveSubTab('models')}
-          className={`pb-3 transition ${
-            activeSubTab === 'models'
-              ? 'border-b-2 border-cyan-500 text-cyan-400 font-semibold'
-              : 'text-neutral-400 hover:text-white'
-          }`}
+          className={activeSubTab === 'models' ? 'active' : ''}
         >
           Offline Models ({models.filter((m) => m.isInstalled).length} installed)
         </button>
         <button
           onClick={() => setActiveSubTab('diagnostics')}
-          className={`pb-3 transition ${
-            activeSubTab === 'diagnostics'
-              ? 'border-b-2 border-cyan-500 text-cyan-400 font-semibold'
-              : 'text-neutral-400 hover:text-white'
-          }`}
+          className={activeSubTab === 'diagnostics' ? 'active' : ''}
         >
           Provider Architecture & Diagnostics
         </button>
@@ -214,18 +214,17 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
       {/* Tab 1: General Settings */}
       {activeSubTab === 'general' && (
-        <div className="space-y-6 text-xs">
+        <div className="offline-translator-general">
           {/* Default Target Language */}
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-            <h4 className="text-sm font-semibold text-neutral-100">Default Target Language</h4>
-            <p className="mt-1 text-neutral-400">
+          <div className="offline-translator-card">
+            <h4 className="offline-translator-card-title">Default Target Language</h4>
+            <p className="offline-translator-card-desc">
               Select the language emails should be translated into by default.
             </p>
-            <div className="mt-3 flex items-center space-x-3">
+            <div className="offline-translator-lang-row">
               <select
                 value={settings.defaultTargetLanguage}
                 onChange={(e) => handleUpdate({ defaultTargetLanguage: e.target.value })}
-                className="rounded border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs text-neutral-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               >
                 <option value="system">
                   System Default ({getLanguageDisplayName(systemLocale)} - {systemLocale})
@@ -236,20 +235,20 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                   </option>
                 ))}
               </select>
-              <span className="text-[11px] text-neutral-400">
+              <span className="offline-translator-locale-hint">
                 Resolved locale: <strong>{getLanguageDisplayName(manager.getEffectiveTargetLanguage())}</strong>
               </span>
             </div>
           </div>
 
           {/* Provider Selection & Fallback */}
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 space-y-4">
+          <div className="offline-translator-card">
             <div>
-              <h4 className="text-sm font-semibold text-neutral-100">Preferred Translation Provider</h4>
-              <p className="mt-1 text-neutral-400">
+              <h4 className="offline-translator-card-title">Preferred Translation Provider</h4>
+              <p className="offline-translator-card-desc">
                 Choose which local engine to attempt first when translating.
               </p>
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="offline-translator-provider-grid">
                 {[
                   { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Argos; Windows/Linux: Argos' },
                   { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
@@ -258,40 +257,36 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                 ].map((p) => (
                   <label
                     key={p.id}
-                    className={`flex cursor-pointer flex-col rounded-md border p-3 transition ${
-                      settings.preferredProvider === p.id
-                        ? 'border-cyan-500 bg-cyan-950/20'
-                        : 'border-neutral-800 bg-neutral-800/40 hover:border-neutral-700'
+                    className={`offline-translator-provider-card ${
+                      settings.preferredProvider === p.id ? 'active' : ''
                     }`}
                   >
-                    <div className="flex items-center space-x-2">
+                    <div className="offline-translator-provider-radio">
                       <input
                         type="radio"
                         name="preferredProvider"
                         value={p.id}
                         checked={settings.preferredProvider === p.id}
                         onChange={() => handleUpdate({ preferredProvider: p.id as any })}
-                        className="text-cyan-600 focus:ring-cyan-500"
                       />
-                      <span className="font-medium text-neutral-200">{p.label}</span>
+                      <span className="offline-translator-provider-label">{p.label}</span>
                     </div>
-                    <span className="mt-1 ml-5 text-[11px] text-neutral-400">{p.desc}</span>
+                    <span className="offline-translator-provider-desc">{p.desc}</span>
                   </label>
                 ))}
               </div>
             </div>
 
-            <div className="border-t border-neutral-800 pt-3">
-              <label className="flex items-center space-x-2 cursor-pointer">
+            <div className="offline-translator-divider">
+              <label className="offline-translator-checkbox-row">
                 <input
                   type="checkbox"
                   checked={settings.autoFallback}
                   onChange={(e) => handleUpdate({ autoFallback: e.target.checked })}
-                  className="rounded text-cyan-600 focus:ring-cyan-500"
                 />
                 <div>
-                  <span className="font-medium text-neutral-200">Enable automatic fallback</span>
-                  <p className="text-[11px] text-neutral-400">
+                  <span className="offline-translator-checkbox-label">Enable automatic fallback</span>
+                  <p className="offline-translator-checkbox-desc">
                     If preferred provider encounters an unsupported language pair, smoothly fall back to Argos.
                   </p>
                 </div>
@@ -300,50 +295,47 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           </div>
 
           {/* Translation Display Mode & Exclusions */}
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 space-y-4">
-            <h4 className="text-sm font-semibold text-neutral-100">Message Display & Privacy Rules</h4>
+          <div className="offline-translator-card">
+            <h4 className="offline-translator-card-title">Message Display & Privacy Rules</h4>
 
-            <div className="space-y-3">
-              <label className="flex items-center space-x-2 cursor-pointer">
+            <div className="offline-translator-checkbox-list">
+              <label className="offline-translator-checkbox-row">
                 <input
                   type="checkbox"
                   checked={settings.excludeSignatures}
                   onChange={(e) => handleUpdate({ excludeSignatures: e.target.checked })}
-                  className="rounded text-cyan-600 focus:ring-cyan-500"
                 />
                 <div>
-                  <span className="font-medium text-neutral-200">Exclude email signatures</span>
-                  <p className="text-[11px] text-neutral-400">
+                  <span className="offline-translator-checkbox-label">Exclude email signatures</span>
+                  <p className="offline-translator-checkbox-desc">
                     Keeps contact information, phone numbers, and job titles in original language.
                   </p>
                 </div>
               </label>
 
-              <label className="flex items-center space-x-2 cursor-pointer">
+              <label className="offline-translator-checkbox-row">
                 <input
                   type="checkbox"
                   checked={settings.excludeQuotedReplies}
                   onChange={(e) => handleUpdate({ excludeQuotedReplies: e.target.checked })}
-                  className="rounded text-cyan-600 focus:ring-cyan-500"
                 />
                 <div>
-                  <span className="font-medium text-neutral-200">Exclude quoted thread replies</span>
-                  <p className="text-[11px] text-neutral-400">
+                  <span className="offline-translator-checkbox-label">Exclude quoted thread replies</span>
+                  <p className="offline-translator-checkbox-desc">
                     Prevents translating historical replies inside blockquotes and gmail_quote blocks.
                   </p>
                 </div>
               </label>
 
-              <label className="flex items-center space-x-2 cursor-pointer">
+              <label className="offline-translator-checkbox-row">
                 <input
                   type="checkbox"
                   checked={settings.excludeCodeBlocks}
                   onChange={(e) => handleUpdate({ excludeCodeBlocks: e.target.checked })}
-                  className="rounded text-cyan-600 focus:ring-cyan-500"
                 />
                 <div>
-                  <span className="font-medium text-neutral-200">Exclude code blocks and preformatted text</span>
-                  <p className="text-[11px] text-neutral-400">
+                  <span className="offline-translator-checkbox-label">Exclude code blocks and preformatted text</span>
+                  <p className="offline-translator-checkbox-desc">
                     Protects &lt;pre&gt; and &lt;code&gt; tags from translation syntax distortion.
                   </p>
                 </div>
@@ -352,40 +344,40 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           </div>
 
           {/* Local Translation Cache */}
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-            <div className="flex items-center justify-between">
+          <div className="offline-translator-card">
+            <div className="offline-translator-card-header">
               <div>
-                <h4 className="text-sm font-semibold text-neutral-100">Local Translation Cache</h4>
-                <p className="mt-1 text-neutral-400">
+                <h4 className="offline-translator-card-title">Local Translation Cache</h4>
+                <p className="offline-translator-card-desc">
                   Saves SHA-256 keyed translations in local storage to avoid repeated inference.
                 </p>
               </div>
               <button
                 onClick={handleClearCache}
-                className="rounded border border-neutral-700 bg-neutral-800 px-3 py-1 text-xs font-medium text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                className="offline-translator-secondary-btn"
               >
                 Clear Cache
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-4 rounded bg-neutral-950/40 p-3 sm:grid-cols-4">
-              <div>
-                <div className="text-[10px] text-neutral-400 uppercase">Cached Items</div>
-                <div className="text-sm font-semibold text-neutral-200">{cacheStats.entryCount}</div>
+            <div className="offline-translator-stats-grid">
+              <div className="offline-translator-stat">
+                <div className="offline-translator-stat-label">Cached Items</div>
+                <div className="offline-translator-stat-value">{cacheStats.entryCount}</div>
               </div>
-              <div>
-                <div className="text-[10px] text-neutral-400 uppercase">Storage Used</div>
-                <div className="text-sm font-semibold text-neutral-200">
+              <div className="offline-translator-stat">
+                <div className="offline-translator-stat-label">Storage Used</div>
+                <div className="offline-translator-stat-value">
                   {(cacheStats.totalSizeBytes / 1024).toFixed(1)} KB
                 </div>
               </div>
-              <div>
-                <div className="text-[10px] text-neutral-400 uppercase">Cache Hits</div>
-                <div className="text-sm font-semibold text-emerald-400">{cacheStats.hitCount}</div>
+              <div className="offline-translator-stat">
+                <div className="offline-translator-stat-label">Cache Hits</div>
+                <div className="offline-translator-stat-value offline-translator-success">{cacheStats.hitCount}</div>
               </div>
-              <div>
-                <div className="text-[10px] text-neutral-400 uppercase">Cache Misses</div>
-                <div className="text-sm font-semibold text-neutral-400">{cacheStats.missCount}</div>
+              <div className="offline-translator-stat">
+                <div className="offline-translator-stat-label">Cache Misses</div>
+                <div className="offline-translator-stat-value">{cacheStats.missCount}</div>
               </div>
             </div>
           </div>
@@ -394,17 +386,17 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
       {/* Tab 2: Offline Models */}
       {activeSubTab === 'models' && (
-        <div className="space-y-4 text-xs">
-          <div className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+        <div className="offline-translator-models">
+          <div className="offline-translator-card offline-translator-models-header">
             <div>
-              <h4 className="text-sm font-semibold text-neutral-100">Argos Neural Translation Models</h4>
-              <p className="mt-1 text-neutral-400">
+              <h4 className="offline-translator-card-title">Argos Neural Translation Models</h4>
+              <p className="offline-translator-card-desc">
                 Downloaded models are stored in the plugin's data/models folder and run 100% offline using the native CTranslate2 runtime.
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-[11px] text-neutral-400">Known Disk Space In Use</div>
-              <div className="text-sm font-semibold text-cyan-400">
+            <div className="offline-translator-models-disk">
+              <div className="offline-translator-small-text">Known Disk Space In Use</div>
+              <div className="offline-translator-disk-value">
                 {hasKnownInstalledSize ? `${installedSizeMB.toFixed(1)} MB` : 'Not provided'}
               </div>
             </div>
@@ -416,56 +408,71 @@ export const OfflineTranslatorSettingsTab: React.FC<{
             </div>
           )}
 
+          {/* Search Field */}
+          <div className="offline-translator-card offline-translator-search-card">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search language pairs (e.g. English, en -> it, Italian)..."
+              className="offline-translator-search-input"
+            />
+          </div>
+
           {/* Model Table */}
-          <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-neutral-800 bg-neutral-950/40 text-[11px] text-neutral-400">
+          <div className="offline-translator-table-wrapper">
+            <table className="offline-translator-table">
+              <thead>
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Language Pair</th>
-                  <th className="px-4 py-2.5 font-medium">Engine</th>
-                  <th className="px-4 py-2.5 font-medium">Package Size</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Action</th>
+                  <th>Language Pair</th>
+                  <th>Engine</th>
+                  <th>Package Size</th>
+                  <th>Status</th>
+                  <th className="offline-translator-table-action">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800/60">
+              <tbody>
                 {modelsLoading && (
-                  <tr><td colSpan={5} className="px-4 py-4 text-center text-neutral-400">Loading Argos models...</td></tr>
+                  <tr><td colSpan={5} className="offline-translator-table-empty">Loading Argos models...</td></tr>
                 )}
-                {!modelsLoading && models.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-4 text-center text-neutral-400">No Argos models are available. Check your network connection.</td></tr>
+                {!modelsLoading && filteredModels.length === 0 && (
+                  <tr><td colSpan={5} className="offline-translator-table-empty">
+                    {models.length === 0
+                      ? 'No Argos models are available. Check your network connection.'
+                      : 'No models match your search criteria.'}
+                  </td></tr>
                 )}
-                {models.map((m) => {
+                {filteredModels.map((m) => {
                   const key = `${m.fromCode}->${m.toCode}`;
                   const isBusy = installingModel === key;
 
                   return (
-                    <tr key={key} className="hover:bg-neutral-800/30">
-                      <td className="px-4 py-3 font-medium text-neutral-200">
+                    <tr key={key}>
+                      <td className="offline-translator-table-pair">
                         {m.fromName} ({m.fromCode}) → {m.toName} ({m.toCode})
                       </td>
-                      <td className="px-4 py-3 text-neutral-400 uppercase">{m.provider}</td>
-                      <td className="px-4 py-3 text-neutral-400">{m.sizeMB ? `${m.sizeMB} MB` : 'Not provided'}</td>
-                      <td className="px-4 py-3">
+                      <td className="offline-translator-table-engine">{m.provider}</td>
+                      <td className="offline-translator-table-size">{m.sizeMB ? `${m.sizeMB} MB` : 'Not provided'}</td>
+                      <td className="offline-translator-table-status">
                         {m.isInstalled ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-950/80 px-2 py-0.5 text-[11px] text-emerald-400 border border-emerald-800/30">
+                          <span className="offline-translator-badge offline-translator-badge-success">
                             ✓ Installed & Ready
                           </span>
                         ) : isBusy ? (
-                          <span className="offline-translator-install-progress text-cyan-400">
+                          <span className="offline-translator-install-progress">
                             <span>{installProgress?.message || 'Downloading and installing...'}</span>
                             <progress max={100} value={installProgress?.percent || 0} />
                             <span>{installProgress?.percent ?? 0}%</span>
                           </span>
                         ) : (
-                          <span className="text-neutral-400">Not Installed</span>
+                          <span className="offline-translator-not-installed">Not Installed</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="offline-translator-table-action">
                         {m.isInstalled ? (
                           <button
                             onClick={() => executeRemove(m)}
-                            className="rounded px-2.5 py-1 text-xs text-rose-400 hover:bg-rose-950/50"
+                            className="offline-translator-danger-btn"
                           >
                             Remove
                           </button>
@@ -473,7 +480,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                           <button
                             onClick={() => handleRequestDownload(m)}
                             disabled={Boolean(installingModel)}
-                            className="rounded bg-cyan-600 px-3 py-1 font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                            className="offline-translator-primary-btn"
                           >
                             Download Model
                           </button>
@@ -490,45 +497,41 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
       {/* Tab 3: Diagnostics */}
       {activeSubTab === 'diagnostics' && (
-        <div className="space-y-4 text-xs">
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-            <h4 className="text-sm font-semibold text-neutral-100">Hardware & Provider Capabilities</h4>
-            <p className="mt-1 text-neutral-400">
+        <div className="offline-translator-diagnostics">
+          <div className="offline-translator-card">
+            <h4 className="offline-translator-card-title">Hardware & Provider Capabilities</h4>
+            <p className="offline-translator-card-desc">
               Real-time platform detection and availability checks across registered translation providers.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="offline-translator-diag-grid">
             {providersInfo.map((p) => (
               <div
                 key={p.id}
-                className="flex flex-col justify-between rounded-lg border border-neutral-800 bg-neutral-900/40 p-4"
+                className="offline-translator-diag-card"
               >
                 <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-neutral-100">{p.name}</span>
+                  <div className="offline-translator-diag-header">
+                    <span className="offline-translator-diag-name">{p.name}</span>
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                        p.isAvailable
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40'
-                          : 'bg-neutral-800 text-neutral-400'
-                      }`}
+                      className={`offline-translator-diag-badge ${p.isAvailable ? 'offline-translator-diag-badge-available' : 'offline-translator-diag-badge-unavailable'}`}
                     >
                       {p.isAvailable ? 'Available' : 'Unavailable'}
                     </span>
                   </div>
-                  <div className="mt-1 text-[11px] text-cyan-400 font-mono">{p.version}</div>
-                  <p className="mt-2 text-[11px] text-neutral-400">{p.description}</p>
+                  <div className="offline-translator-diag-version">{p.version}</div>
+                  <p className="offline-translator-diag-desc">{p.description}</p>
                 </div>
 
-                <div className="mt-4 border-t border-neutral-800/60 pt-3 text-[11px]">
+                <div className="offline-translator-diag-footer">
                   {p.unavailabilityReason && (
-                    <div className="rounded bg-neutral-950/60 p-2 text-neutral-400 border border-neutral-800">
+                    <div className="offline-translator-diag-reason">
                       ℹ️ {p.unavailabilityReason}
                     </div>
                   )}
-                  <div className="mt-2 text-neutral-400">
-                    Platforms: <span className="text-neutral-300">{p.platform.join(', ')}</span>
+                  <div className="offline-translator-diag-platforms">
+                    Platforms: <span className="offline-translator-diag-platforms-value">{p.platform.join(', ')}</span>
                   </div>
                 </div>
               </div>

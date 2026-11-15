@@ -92,7 +92,8 @@ export class ArgosTranslationProvider implements ITranslationProvider {
   }
 
   public async getSupportedLanguages(): Promise<LanguagePair[]> {
-    return (await this.getInstalledModels()).map((model) => ({
+    const installedModels = await this.getInstalledModels();
+    return installedModels.map((model) => ({
       source: model.fromCode,
       target: model.toCode,
       sourceName: model.fromName,
@@ -114,27 +115,36 @@ export class ArgosTranslationProvider implements ITranslationProvider {
       throw new Error('Argos returned an invalid model catalog.');
     }
 
+    const installedModels = await this.getInstalledModels();
+    const installedSizeMap = new Map(
+      installedModels.map((model) => [`${model.fromCode}->${model.toCode}`, model.sizeMB])
+    );
     const installed = new Set(
-      (await this.getInstalledModels()).map((model) => `${model.fromCode}->${model.toCode}`)
+      installedModels.map((model) => `${model.fromCode}->${model.toCode}`)
     );
 
     return entries
       .filter((entry) => this.isCatalogEntry(entry))
-      .map((entry) => ({
-        fromCode: normalizeLanguageTag(entry.from_code),
-        fromName: entry.from_name,
-        toCode: normalizeLanguageTag(entry.to_code),
-        toName: entry.to_name,
-        packageVersion: entry.package_version,
-        sizeMB: Number(entry.package_size) > 0
-          ? Number((Number(entry.package_size) / (1024 * 1024)).toFixed(1))
-          : 0,
-        isInstalled: installed.has(
-          `${normalizeLanguageTag(entry.from_code)}->${normalizeLanguageTag(entry.to_code)}`
-        ),
-        downloadUrl: entry.links.find((url) => typeof url === 'string' && url.startsWith('https://')),
-        provider: 'argos' as const,
-      }));
+      .map((entry) => {
+        const key = `${normalizeLanguageTag(entry.from_code)}->${normalizeLanguageTag(entry.to_code)}`;
+        const isInstalled = installed.has(key);
+        const installedSize = installedSizeMap.get(key);
+        return {
+          fromCode: normalizeLanguageTag(entry.from_code),
+          fromName: entry.from_name,
+          toCode: normalizeLanguageTag(entry.to_code),
+          toName: entry.to_name,
+          packageVersion: entry.package_version,
+          sizeMB: isInstalled && installedSize !== undefined && installedSize > 0
+            ? installedSize
+            : Number(entry.package_size) > 0
+              ? Number((Number(entry.package_size) / (1024 * 1024)).toFixed(1))
+              : 0,
+          isInstalled,
+          downloadUrl: entry.links.find((url) => typeof url === 'string' && url.startsWith('https://')),
+          provider: 'argos' as const,
+        };
+      });
   }
 
   public async installModel(
@@ -343,12 +353,44 @@ export class ArgosTranslationProvider implements ITranslationProvider {
         await fs.promises.access(path.join(modelPath, 'source.spm'));
         await fs.promises.access(path.join(modelPath, 'target.spm'));
         await fs.promises.access(path.join(modelPath, 'shared_vocabulary.txt'));
-        models.push({ ...metadata, modelPath });
+        // Calcola la dimensione reale dal filesystem invece di usare quella del catalogo
+        const actualSizeMB = await this.getDirectorySize(modelDirectory);
+        models.push({ ...metadata, modelPath, sizeMB: actualSizeMB });
       } catch {
         continue;
       }
     }
     return models;
+  }
+
+  private async getDirectorySize(dirPath: string): Promise<number> {
+    const fs = this.getNodeModule<typeof import('fs')>('fs');
+    const path = this.getNodeModule<typeof import('path')>('path');
+    let totalBytes = 0;
+    const stack: string[] = [dirPath];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      let entries: import('fs').Dirent[];
+      try {
+        entries = await fs.promises.readdir(current, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(fullPath);
+        } else if (entry.isFile()) {
+          try {
+            const stat = await fs.promises.stat(fullPath);
+            totalBytes += stat.size;
+          } catch {
+            // Ignora file non accessibili
+          }
+        }
+      }
+    }
+    return Number((totalBytes / (1024 * 1024)).toFixed(1));
   }
 
   private async downloadModel(
