@@ -14,6 +14,7 @@
 import { ITranslationProvider } from './providers/provider-interface';
 import { AppleTranslationProvider } from './providers/apple-provider';
 import { WindowsAiProvider } from './providers/windows-provider';
+import { OpusTranslationProvider } from './providers/opus-provider';
 import { ArgosTranslationProvider } from './providers/argos-provider';
 import {
   LanguageDetectionResult,
@@ -72,6 +73,7 @@ export class TranslationManager {
   private initDefaultProviders(): void {
     this.providers.set('apple', new AppleTranslationProvider());
     this.providers.set('windows-ai', new WindowsAiProvider());
+    this.providers.set('opus', new OpusTranslationProvider());
     this.providers.set('argos', new ArgosTranslationProvider());
   }
 
@@ -142,17 +144,54 @@ export class TranslationManager {
     return argos.removeModel(fromLang, toLang);
   }
 
+  public async getInstalledOpusModels(): Promise<LanguagePair[]> {
+    const opus = this.providers.get('opus');
+    if (!opus) {
+      throw new Error('OPUS provider is not registered.');
+    }
+    return opus.getSupportedLanguages();
+  }
+
+  public async getInstallableOpusModels(): Promise<ModelPackage[]> {
+    const opus = this.providers.get('opus');
+    if (!opus?.listInstallableModels) {
+      throw new Error('OPUS model catalog is not available.');
+    }
+    return opus.listInstallableModels();
+  }
+
+  public async installOpusModel(
+    fromLang: string,
+    toLang: string,
+    onProgress?: (percent: number, message: string) => void
+  ): Promise<boolean> {
+    const opus = this.providers.get('opus');
+    if (!opus?.installModel) {
+      throw new Error('OPUS model installation is not supported by this provider.');
+    }
+    return opus.installModel(fromLang, toLang, onProgress);
+  }
+
+  public async removeOpusModel(fromLang: string, toLang: string): Promise<boolean> {
+    const opus = this.providers.get('opus');
+    if (!opus?.removeModel) {
+      throw new Error('OPUS model removal is not supported by this provider.');
+    }
+    return opus.removeModel(fromLang, toLang);
+  }
+
   /**
    * Determines provider priority list based on host OS.
+   * OPUS-MT is inserted between the native provider and Argos as a higher-quality offline fallback.
    */
   public getPriorityList(): ProviderId[] {
     if (this.platform === 'darwin') {
-      return ['apple', 'argos'];
+      return ['apple', 'opus', 'argos'];
     }
     if (this.platform === 'win32') {
-      return ['windows-ai', 'argos'];
+      return ['windows-ai', 'opus', 'argos'];
     }
-    return ['argos'];
+    return ['opus', 'argos'];
   }
 
   /**

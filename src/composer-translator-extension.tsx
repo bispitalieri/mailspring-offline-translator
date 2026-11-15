@@ -13,6 +13,7 @@
 
 import React, { useState } from './react-runtime';
 import { TranslationManager } from './translation-manager';
+import { ProviderId } from './types';
 import { getLanguageDisplayName, getCommonLanguages } from './bcp47';
 
 export interface ComposerSession {
@@ -39,6 +40,7 @@ export const ComposerTranslateModal: React.FC<{
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasTranslated, setHasTranslated] = useState<boolean>(false);
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('auto');
 
   const languages = getCommonLanguages();
 
@@ -54,6 +56,7 @@ export const ComposerTranslateModal: React.FC<{
         sourceLang: 'auto',
         targetLang,
         isHtml: true,
+        providerId: selectedProvider === 'auto' ? undefined : selectedProvider,
       });
       setTranslatedText(res.translatedText);
       setDetectedLang(res.detectedSourceLang || null);
@@ -109,6 +112,15 @@ export const ComposerTranslateModal: React.FC<{
                   {l.name} ({l.code})
                 </option>
               ))}
+            </select>
+            <span className="offline-translator-toolbar-label">Provider:</span>
+            <select
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value as ProviderId)}
+            >
+              <option value="auto">Automatic</option>
+              <option value="opus">OPUS-MT</option>
+              <option value="argos">Argos Translate</option>
             </select>
             {detectedLang && (
               <span className="offline-translator-detected-lang">

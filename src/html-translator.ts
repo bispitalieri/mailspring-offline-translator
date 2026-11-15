@@ -17,6 +17,9 @@ export interface SegmentedHtml {
 export class HtmlTranslator {
   private static readonly EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
   private static readonly URL_REGEX = /https?:\/\/[^\s<>"']+/g;
+  // Usa caratteri Unicode rari (Zero Width Space + U+FFFD) che i modelli MT tendono a preservare
+  private static readonly MASK_PREFIX = '\u200B\uFFFD';
+  private static readonly MASK_SUFFIX = '\uFFFD\u200B';
 
   public static segment(
     html: string,
@@ -89,13 +92,13 @@ export class HtmlTranslator {
       let maskedContent = trimmed;
 
       maskedContent = maskedContent.replace(HtmlTranslator.EMAIL_REGEX, (email: string) => {
-        const mask = `{{EMAIL_${inlineId++}}}`;
+        const mask = `${HtmlTranslator.MASK_PREFIX}EMAIL_${inlineId++}${HtmlTranslator.MASK_SUFFIX}`;
         inlineMasks.set(mask, email);
         return mask;
       });
 
       maskedContent = maskedContent.replace(HtmlTranslator.URL_REGEX, (url: string) => {
-        const mask = `{{URL_${inlineId++}}}`;
+        const mask = `${HtmlTranslator.MASK_PREFIX}URL_${inlineId++}${HtmlTranslator.MASK_SUFFIX}`;
         inlineMasks.set(mask, url);
         return mask;
       });
@@ -110,12 +113,12 @@ export class HtmlTranslator {
       let trimmed = skeleton.trim();
       if (trimmed) {
         trimmed = trimmed.replace(HtmlTranslator.EMAIL_REGEX, (email: string) => {
-          const mask = `{{EMAIL_${inlineId++}}}`;
+          const mask = `${HtmlTranslator.MASK_PREFIX}EMAIL_${inlineId++}${HtmlTranslator.MASK_SUFFIX}`;
           inlineMasks.set(mask, email);
           return mask;
         });
         trimmed = trimmed.replace(HtmlTranslator.URL_REGEX, (url: string) => {
-          const mask = `{{URL_${inlineId++}}}`;
+          const mask = `${HtmlTranslator.MASK_PREFIX}URL_${inlineId++}${HtmlTranslator.MASK_SUFFIX}`;
           inlineMasks.set(mask, url);
           return mask;
         });
@@ -145,7 +148,14 @@ export class HtmlTranslator {
 
     if (inlineMasks && inlineMasks.size > 0) {
       for (const [mask, original] of inlineMasks.entries()) {
+        // Prova prima il placeholder originale
         result = result.replaceAll(mask, original);
+        // I modelli MT possono modificare i placeholder; cerca varianti comuni
+        // Il modello potrebbe aver rimosso gli zeri width space o aggiunto spazi
+        const maskWithoutZwsp = mask.replace(/\u200B/g, '');
+        result = result.replaceAll(maskWithoutZwsp, original);
+        // Il modello potrebbe aver tradotto "URL" o "EMAIL" in altre lingue
+        result = result.replace(/\uFFFD(?:tradotto|translated)?\s*(?:URL|url|URL_)[\d_]+\uFFFD/gi, original);
       }
     }
 

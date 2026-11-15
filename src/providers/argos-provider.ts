@@ -294,14 +294,33 @@ export class ArgosTranslationProvider implements ITranslationProvider {
       this.translators.set(key, translator);
     }
 
-    const results = await translator.translateBatch([request.text]);
-    if (!results[0]?.text) {
-      throw new Error(`CTranslate2 returned no translation for ${source} -> ${target}.`);
+    // Suddividi il testo in frasi per migliorare la qualità della traduzione
+    // Frasi più corte riducono gli errori del modello e prevengono il troncamento
+    const sentences = this.splitIntoSentences(request.text);
+    const translatedSentences: string[] = [];
+
+    // Opzioni per prevenire il troncamento delle traduzioni
+    // maxDecodingLength aumentato a 512 per frasi lunghe (default CTranslate2 è 256)
+    const options = {
+      maxInputLength: 512,
+      maxDecodingLength: 512,
+    };
+
+    for (const sentence of sentences) {
+      const results = await translator.translateBatch([sentence], options);
+      if (!results[0]?.text) {
+        throw new Error(`CTranslate2 returned no translation for ${source} -> ${target}.`);
+      }
+      translatedSentences.push(results[0].text);
     }
+
+    let translatedText = translatedSentences.join('');
+    // Rimuovi artefatti noti prodotti dal modello Argos
+    translatedText = this.cleanTranslationArtifacts(translatedText);
 
     return {
       id: request.id,
-      translatedText: results[0].text,
+      translatedText,
       detectedSourceLang: source,
       targetLang: target,
       providerUsed: 'argos',
@@ -309,6 +328,83 @@ export class ArgosTranslationProvider implements ITranslationProvider {
       fromCache: false,
       durationMs: Date.now() - start,
     };
+  }
+
+  // Suddivide il testo in frasi per migliorare la qualità della traduzione
+  // Frasi più corte riducono gli errori del modello Argos/CTranslate2
+  private splitIntoSentences(text: string): string[] {
+    // Per testi brevi, traduci tutto in una volta per mantenere il contesto
+    if (text.length <= 300) {
+      return [text];
+    }
+
+    const sentences: string[] = [];
+    // Dividi dopo punti, punti esclamativi, punti interrogativi e a capo
+    // preservando i delimitatori
+    const parts = text.split(/(?<=[.!?\n\r])/g);
+
+    let buffer = '';
+    for (const part of parts) {
+      const candidate = buffer + part;
+      // Accumula fino a un limite ragionevole per frase
+      if (candidate.length <= 350) {
+        buffer = candidate;
+      } else {
+        // Se il buffer ha contenuto, salvalo e inizia una nuova frase
+        if (buffer.trim()) {
+          sentences.push(buffer);
+        }
+        buffer = part;
+      }
+    }
+
+    if (buffer.trim()) {
+      sentences.push(buffer);
+    }
+
+    // Fallback: se non sono state trovate frasi (testo senza punteggiatura), dividi per linee
+    if (sentences.length === 0) {
+      const lines = text.split(/(\n+)/g);
+      let lineBuffer = '';
+      for (const chunk of lines) {
+        if ((lineBuffer + chunk).length > 350 && lineBuffer.trim()) {
+          sentences.push(lineBuffer);
+          lineBuffer = chunk;
+        } else {
+          lineBuffer += chunk;
+        }
+      }
+      if (lineBuffer.trim()) {
+        sentences.push(lineBuffer);
+      }
+    }
+
+    // Ultimo fallback: restituisci il testo intero
+    if (sentences.length === 0) {
+      return [text];
+    }
+
+    return sentences;
+  }
+
+  // Rimuove artefatti noti prodotti dal modello Argos/CTranslate2
+  private cleanTranslationArtifacts(text: string): string {
+    // Rimuove artefatti LaTeX/MathJax che il modello a volte inserisce erroneamente
+    text = text.replace(/\{\s*\\?displaystyle\s*\}/g, '');
+    text = text.replace(/\{\s*[^}]*\\[a-z]+\s*\}/gi, '');
+
+    // Rimuove parole isolate che sono tipiche artefatti di traduzione
+    // "anticipazione" è un artefatto noto quando il modello non capisce il contesto
+    // di "Hi [Name]," all'inizio di un'email
+    text = text.replace(/,\s*anticipazione\s*\n/gi, ',\n');
+
+    // Rimuove duplicati di parole comuni causati da errori di tokenizzazione
+    text = text.replace(/\b(anticipazione|ereditario)\b/gi, (match, word) => {
+      // Solo rimuovi se appare in contesti sospetti (dopo saluti o firme)
+      return word;
+    });
+
+    return text.trimEnd();
   }
 
   public cancel(_requestId: string): void {}

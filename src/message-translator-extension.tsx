@@ -40,7 +40,6 @@ export const MessageTranslatorHeader: React.FC<{
   const [targetLang, setTargetLang] = useState<string>(() => manager.getEffectiveTargetLanguage());
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProvider] = useState<ProviderId>('auto');
 
   const languages = getCommonLanguages();
 
@@ -49,7 +48,6 @@ export const MessageTranslatorHeader: React.FC<{
     setError(null);
     try {
       const tgt = overrideTarget || targetLang;
-      const prov = overrideProvider || selectedProvider;
       const source = getMessageTranslationSource(message);
 
       const res = await manager.translate({
@@ -58,7 +56,7 @@ export const MessageTranslatorHeader: React.FC<{
         sourceLang: 'auto',
         targetLang: tgt,
         isHtml: !source.isPlaintext,
-        providerId: prov === 'auto' ? undefined : prov,
+        providerId: overrideProvider,
       });
 
       const visibleResult = source.isPlaintext
