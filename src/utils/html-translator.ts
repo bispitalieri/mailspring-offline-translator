@@ -134,6 +134,37 @@ export class HtmlTranslator {
     return { skeleton, segments, inlineMasks };
   }
 
+  /**
+   * Rimuove i tag HTML dal testo tradotto e decodifica le entità HTML.
+   * I modelli MT possono restituire testo con tag HTML (es. <p>, <br>, <b>)
+   * o entità HTML (es. &lt;, &amp;) che non dovrebbero essere presenti nei segmenti di testo puro.
+   * Gestisce anche le entità doppio-escaped (es. &amp;lt; che appare come &lt; nel DOM).
+   */
+  private static stripHtmlTags(text: string): string {
+    // Prima decodifica le entità doppio-escaped (es. &amp;lt; -> &lt;, &amp;gt; -> &gt;)
+    // Questo è necessario perché quando il testo viene reinserito nel DOM, le entità già presenti
+    // vengono escapeate di nuovo, creando entità doppio-escaped.
+    let stripped = text.replace(/&amp;lt;/gi, '&lt;').replace(/&amp;gt;/gi, '&gt;');
+    stripped = stripped.replace(/&amp;amp;/gi, '&amp;').replace(/&amp;quot;/gi, '&quot;');
+    stripped = stripped.replace(/&amp;#39;/gi, '&#39;').replace(/&amp;nbsp;/gi, '&nbsp;');
+
+    // Rimuove tutti i tag HTML (aperti e chiusi), inclusi quelli escaped come &lt;div&gt;
+    stripped = stripped.replace(/<[^>]*>/g, '');
+    // Rimuove i tag HTML escaped che il modello potrebbe aver introdotto
+    stripped = stripped.replace(/&lt;\/?[a-zA-Z][^&]*&gt;/gi, '');
+
+    // Decodifica le entità HTML comuni che il modello potrebbe aver introdotto
+    stripped = stripped.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    stripped = stripped.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    stripped = stripped.replace(/&nbsp;/g, ' ');
+
+    // Decodifica le entità numeriche (es. &#39; -> ', &#160; -> space)
+    stripped = stripped.replace(/&#(\d+);/g, (_, decimal) => String.fromCharCode(parseInt(decimal, 10)));
+    stripped = stripped.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+    return stripped;
+  }
+
   public static reassemble(
     skeleton: string,
     translatedSegments: string[],
@@ -142,8 +173,10 @@ export class HtmlTranslator {
     let result = skeleton;
 
     translatedSegments.forEach((translated, index) => {
+      // Stripa i tag HTML dal testo tradusto per evitare che vengano iniettati nel skeleton
+      const cleaned = HtmlTranslator.stripHtmlTags(translated);
       const marker = `{{__SEG_${index}__}}`;
-      result = result.replace(marker, () => translated);
+      result = result.replace(marker, () => cleaned);
     });
 
     if (inlineMasks && inlineMasks.size > 0) {

@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatWithPresentation, MessagePresentation } from '../src/message-body-extension';
+import mod from '../lib/ui/message-body-extension.js';
+
+const { formatWithPresentation, htmlToPlaintext } = mod;
+
+interface MessagePresentation {
+  originalBody: string;
+  translatedBody: string;
+  isPlaintext: boolean;
+  mode: 'inline' | 'split' | 'original';
+}
 
 function presentation(overrides: Partial<MessagePresentation> = {}): MessagePresentation {
   return {
@@ -40,4 +49,37 @@ test('message body formatter escapes plaintext before rendering', () => {
     message.body,
     '<pre style="white-space: pre-wrap; overflow-wrap: anywhere">Ciao &lt;mondo&gt;</pre>'
   );
+});
+
+test('htmlToPlaintext converts br tags to newlines', () => {
+  const html = 'This is an email.<br><br>As you\'ve received it, everything must be a-ok.<br><br>Kind regards,<br>The Mailspring Team';
+  const result = htmlToPlaintext(html);
+  assert.equal(result, 'This is an email.\n\nAs you\'ve received it, everything must be a-ok.\n\nKind regards,\nThe Mailspring Team');
+});
+
+test('htmlToPlaintext removes other HTML tags and decodes entities', () => {
+  const html = 'Hello <strong>World</strong> &amp; friends<br/>See you <b>soon</b>!';
+  const result = htmlToPlaintext(html);
+  assert.equal(result, 'Hello World & friends\nSee you soon!');
+});
+
+test('htmlToPlaintext decodes numeric HTML entities', () => {
+  const html = 'It&#39;s working&nbsp;fine<br>Line 2';
+  const result = htmlToPlaintext(html);
+  assert.equal(result, 'It\'s working fine\nLine 2');
+});
+
+test('asPlaintextHtml preserves newlines as br tags', () => {
+  const message = { id: 'plain-newlines', body: 'Line 1\nLine 2' };
+  formatWithPresentation(
+    message,
+    presentation({
+      originalBody: 'Line 1\nLine 2',
+      translatedBody: 'Line 1\nLine 2',
+      isPlaintext: true,
+    })
+  );
+  assert.ok(message.body.includes('<br>'));
+  assert.ok(message.body.includes('Line 1'));
+  assert.ok(message.body.includes('Line 2'));
 });

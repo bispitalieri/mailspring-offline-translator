@@ -14,9 +14,11 @@ import { TranslationResult, ProviderId } from '../types';
 import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
 import {
   getMessageTranslationSource,
+  htmlToPlaintext,
   sanitizeTranslatedHtml,
   setMessageTranslationPresentation,
   resetMessageToOriginal,
+  restoreCurrentMessageCache,
 } from './message-body-extension';
 
 export interface MessageProps {
@@ -44,10 +46,12 @@ export const MessageTranslatorHeader: React.FC<{
 
   // Reset translation state when the selected message changes
   useEffect(() => {
-    // Clear the presentation map entry and restore the original body so formatMessageBody
-    // does not apply a stale translation when the user switches emails.
-    // Also update Mailspring's cache to ensure the original body is rendered.
-    resetMessageToOriginal(message);
+    // Prima di passare alla nuova email, ripristiniamo la cache dell'email precedente
+    // con il corpo originale così quando l'utente torna indietro vede il messaggio originale.
+    (async () => {
+      await restoreCurrentMessageCache();
+      await resetMessageToOriginal(message);
+    })();
     setViewMode('original');
     setTranslationResult(null);
     setDetectedLang(null);
@@ -63,9 +67,15 @@ export const MessageTranslatorHeader: React.FC<{
       const tgt = overrideTarget || targetLang;
       const source = getMessageTranslationSource(message);
 
+      // Per i messaggi plaintext, convertiamo il corpo HTML in testo puro prima della traduzione
+      // per evitare che i tag <br> e altri tag HTML vengano passati al modello di traduzione
+      const textToTranslate = source.isPlaintext
+        ? htmlToPlaintext(source.body)
+        : source.body;
+
       const res = await manager.translate({
         id: `msg_${message.id}_${Date.now()}`,
-        text: source.body,
+        text: textToTranslate,
         sourceLang: 'auto',
         targetLang: tgt,
         isHtml: !source.isPlaintext,
