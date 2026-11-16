@@ -22,14 +22,14 @@ mkdir -p "${DIST_DIR}/${PACKAGE_NAME}"
 
 # 3. Copy plugin payload (package.json, lib/, src/, helpers/, scripts/, docs)
 STAGED_PLUGIN="${DIST_DIR}/${PACKAGE_NAME}"
-cp -r package.json tsconfig.json lib src helpers scripts styles README.md ARCHITECTURE.md FEASIBILITY.md "$STAGED_PLUGIN/"
+cp -r package.json lib helpers styles "$STAGED_PLUGIN/"
 
 # Mailspring does not install plugin npm dependencies when loading a release archive.
 npm install --prefix "$STAGED_PLUGIN" --omit=dev --no-audit --no-fund
 
 # 4. Verify compiled entry point in staging
-if [[ ! -f "${DIST_DIR}/${PACKAGE_NAME}/lib/main.js" ]]; then
-  echo "Error: lib/main.js is missing from staging package!" >&2
+if [[ ! -f "${DIST_DIR}/${PACKAGE_NAME}/lib/core/main.js" ]]; then
+  echo "Error: lib/core/main.js is missing from staging package!" >&2
   exit 1
 fi
 if [[ ! -f "${DIST_DIR}/${PACKAGE_NAME}/node_modules/ctranslate2/index.js" ]]; then

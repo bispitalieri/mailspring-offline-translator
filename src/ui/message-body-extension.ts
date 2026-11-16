@@ -1,4 +1,4 @@
-import { TranslationResult } from './types';
+import { TranslationResult } from '../types';
 
 export type TranslationViewMode = 'inline' | 'split' | 'original';
 

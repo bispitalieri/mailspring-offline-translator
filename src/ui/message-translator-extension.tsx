@@ -8,10 +8,10 @@
  * Crucial: Never mutates message body in Mailspring's SQLite/IndexedDB store.
  */
 
-import React, { useState } from './react-runtime';
-import { TranslationManager } from './translation-manager';
-import { TranslationResult, ProviderId } from './types';
-import { getLanguageDisplayName, getCommonLanguages } from './bcp47';
+import React, { useState } from '../utils/react-runtime';
+import { TranslationManager } from '../core/translation-manager';
+import { TranslationResult, ProviderId } from '../types';
+import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
 import {
   getMessageTranslationSource,
   sanitizeTranslatedHtml,

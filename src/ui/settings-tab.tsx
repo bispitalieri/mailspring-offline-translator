@@ -12,10 +12,10 @@
  * - Provider Diagnostics & Hardware probes
  */
 
-import React, { useEffect, useState } from './react-runtime';
-import { TranslationManager } from './translation-manager';
-import { LanguagePair, ModelPackage, PluginSettings, ProviderInfo } from './types';
-import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from './bcp47';
+import React, { useEffect, useState } from '../utils/react-runtime';
+import { TranslationManager } from '../core/translation-manager';
+import { LanguagePair, ModelPackage, PluginSettings, ProviderInfo } from '../types';
+import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from '../utils/bcp47';
 import { confirmationWindow } from './confirmation-window';
 
 export const OfflineTranslatorSettingsTab: React.FC<{

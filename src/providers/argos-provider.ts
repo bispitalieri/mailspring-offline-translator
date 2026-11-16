@@ -13,8 +13,8 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { normalizeLanguageTag } from '../bcp47';
-import { ProcessManager } from '../process-manager';
+import { normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager } from '../utils/process-manager';
 
 const MODEL_CATALOG_URL = 'https://raw.githubusercontent.com/argosopentech/argospm-index/master/index.json';
 const MODEL_METADATA_FILE = '.mailspring-model.json';

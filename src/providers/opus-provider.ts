@@ -13,8 +13,8 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { normalizeLanguageTag } from '../bcp47';
-import { ProcessManager } from '../process-manager';
+import { normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager } from '../utils/process-manager';
 
 const MODEL_METADATA_FILE = '.mailspring-model.json';
 
@@ -145,7 +145,7 @@ function buildOpusCatalog(): Record<string, OpusModelDefinition> {
     catalog[key] = {
       repoId: `Sams200/opus-mt-${src}-${tgt}`,
       files: standardFiles,
-      estimatedSizeMB: 241,
+      estimatedSizeMB: 0,
     };
   }
   return catalog;

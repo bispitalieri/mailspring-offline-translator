@@ -2,7 +2,7 @@
  * Local Offline Translation Cache
  */
 
-import { CacheEntry, CacheStats } from './types';
+import { CacheEntry, CacheStats } from '../types';
 
 export function computeSha256(text: string): string {
   if (typeof process !== 'undefined' && process.versions?.node) {

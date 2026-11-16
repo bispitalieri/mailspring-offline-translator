@@ -11,10 +11,10 @@
  * - Preserves rich text styling and hyperlinks.
  */
 
-import React, { useState } from './react-runtime';
-import { TranslationManager } from './translation-manager';
-import { ProviderId } from './types';
-import { getLanguageDisplayName, getCommonLanguages } from './bcp47';
+import React, { useState } from '../utils/react-runtime';
+import { TranslationManager } from '../core/translation-manager';
+import { ProviderId } from '../types';
+import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
 
 export interface ComposerSession {
   draft?: {

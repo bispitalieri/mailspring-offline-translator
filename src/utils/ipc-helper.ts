@@ -2,7 +2,7 @@
  * JSON Lines IPC Helper for Native and Standalone Worker Processes
  */
 
-import { IPCMessage } from './types';
+import { IPCMessage } from '../types';
 
 export interface PendingRequest {
   id: string;

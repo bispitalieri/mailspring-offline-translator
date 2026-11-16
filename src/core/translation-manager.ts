@@ -11,11 +11,11 @@
  * - Cancellation and timeouts
  */
 
-import { ITranslationProvider } from './providers/provider-interface';
-import { AppleTranslationProvider } from './providers/apple-provider';
-import { WindowsAiProvider } from './providers/windows-provider';
-import { OpusTranslationProvider } from './providers/opus-provider';
-import { ArgosTranslationProvider } from './providers/argos-provider';
+import { ITranslationProvider } from '../providers/provider-interface';
+import { AppleTranslationProvider } from '../providers/apple-provider';
+import { WindowsAiProvider } from '../providers/windows-provider';
+import { OpusTranslationProvider } from '../providers/opus-provider';
+import { ArgosTranslationProvider } from '../providers/argos-provider';
 import {
   LanguageDetectionResult,
   LanguagePair,
@@ -26,11 +26,11 @@ import {
   SupportedPlatform,
   TranslationRequest,
   TranslationResult,
-} from './types';
-import { TranslationCache } from './cache';
-import { HtmlTranslator } from './html-translator';
-import { getSystemLocale, normalizeLanguageTag } from './bcp47';
-import { ProcessManager } from './process-manager';
+} from '../types';
+import { TranslationCache } from '../utils/cache';
+import { HtmlTranslator } from '../utils/html-translator';
+import { getSystemLocale, normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager } from '../utils/process-manager';
 
 export class TranslationManager {
   private providers: Map<ProviderId, ITranslationProvider> = new Map();
@@ -196,48 +196,62 @@ export class TranslationManager {
 
   /**
    * Resolves the primary provider to use, honoring preferredProvider or automatic platform priority.
+   * 
+   * Se preferredProvider non è 'auto':
+   *   - Se autoFallback è true: prova il provider preferito, poi ricade sugli altri in ordine di priorità.
+   *   - Se autoFallback è false: usa solo il provider preferito senza fallback.
+   * Se preferredProvider è 'auto':
+   *   - Se autoFallback è true: usa la lista di priorità della piattaforma provando tutti i provider.
+   *   - Se autoFallback è false: usa solo il primo provider della lista di priorità.
    */
   public async resolveProvider(
     sourceLang: string,
     targetLang: string
   ): Promise<ITranslationProvider | null> {
     const preferred = this.settings.preferredProvider;
+    const allowFallback = this.settings.autoFallback;
 
-    // Manual provider selection
+    /** Helper: prova un singolo provider */
+    const tryProvider = async (pid: ProviderId): Promise<ITranslationProvider | null> => {
+      const p = this.providers.get(pid);
+      if (!p) return null;
+      const avail = await p.isAvailable();
+      if (!avail) return null;
+      const can = await p.canTranslate(sourceLang, targetLang);
+      if (can) return p;
+      return null;
+    };
+
     if (preferred !== 'auto') {
-      const provider = this.providers.get(preferred);
-      if (provider) {
-        const avail = await provider.isAvailable();
-        const canTrans = await provider.canTranslate(sourceLang, targetLang);
-        if (avail && canTrans) {
-          return provider;
+      // Provider specifico selezionato dall'utente
+      const result = await tryProvider(preferred);
+      if (result) return result;
+
+      // Se il provider preferito non funziona e il fallback è abilitato, prova gli altri
+      if (allowFallback) {
+        const priority = this.getPriorityList();
+        for (const pid of priority) {
+          if (pid === preferred) continue; // Salta il provider già provato
+          const result = await tryProvider(pid);
+          if (result) return result;
         }
       }
-      // If manual selection fails and fallback is disabled, return null
-      if (!this.settings.autoFallback) {
-        return null;
-      }
+
+      return null;
     }
 
-    // Automatic platform priority resolution
+    // Modalità 'auto': usa la lista di priorità della piattaforma
     const priority = this.getPriorityList();
-    for (const pid of priority) {
-      const p = this.providers.get(pid);
-      if (!p) continue;
-
-      const avail = await p.isAvailable();
-      if (!avail) continue;
-
-      const can = await p.canTranslate(sourceLang, targetLang);
-      if (can) {
-        return p;
-      }
+    
+    if (!allowFallback) {
+      // Senza fallback, prova solo il primo provider della lista
+      return await tryProvider(priority[0]);
     }
 
-    // Fallback: Check if Argos is available even if pair check was strict
-    const argos = this.providers.get('argos');
-    if (argos && (await argos.isAvailable())) {
-      return argos;
+    // Con fallback abilitato, prova tutti i provider in ordine di priorità
+    for (const pid of priority) {
+      const result = await tryProvider(pid);
+      if (result) return result;
     }
 
     return null;

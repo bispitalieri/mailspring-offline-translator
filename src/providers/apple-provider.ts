@@ -12,9 +12,9 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { JsonLinesIpcClient } from '../ipc-helper';
-import { normalizeLanguageTag } from '../bcp47';
-import { ProcessManager, ExecutableResolution } from '../process-manager';
+import { JsonLinesIpcClient } from '../utils/ipc-helper';
+import { normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager, ExecutableResolution } from '../utils/process-manager';
 
 export class AppleTranslationProvider implements ITranslationProvider {
   private ipcClient: JsonLinesIpcClient | null = null;

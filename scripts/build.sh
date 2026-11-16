@@ -14,12 +14,12 @@ cd "$PLUGIN_ROOT"
 echo "[1/4] Compiling TypeScript source from src/ to lib/..."
 npx tsc --project tsconfig.json
 
-# 2. Verify lib/main.js compiled entry point
-if [[ ! -f "lib/main.js" ]]; then
-  echo "Error: lib/main.js not found after compilation!" >&2
+# 2. Verify lib/core/main.js compiled entry point
+if [[ ! -f "lib/core/main.js" ]]; then
+  echo "Error: lib/core/main.js not found after compilation!" >&2
   exit 1
 fi
-echo "✓ Verified lib/main.js entry point exists."
+echo "✓ Verified lib/core/main.js entry point exists."
 
 # 3. Build Apple Native Helper on macOS if swiftc is present
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -41,7 +41,7 @@ echo "[3/4] Ensuring executable permissions on native helpers..."
 chmod +x helpers/apple/bin/* 2>/dev/null || true
 
 echo "[4/4] Verifying package integrity..."
-node -e 'const pkg = require("./package.json"); if (pkg.main !== "lib/main.js") { console.error("package.json main must be lib/main.js"); process.exit(1); } console.log("✓ package.json main is verified:", pkg.main);'
+node -e 'const pkg = require("./package.json"); if (pkg.main !== "lib/core/main.js") { console.error("package.json main must be lib/core/main.js"); process.exit(1); } console.log("✓ package.json main is verified:", pkg.main);'
 
 echo "================================================================="
 echo "✓ Build complete. The plugin is ready to install into ~/.mailspring/packages"

@@ -2,7 +2,7 @@
  * Process manager for the native Apple helper and Mailspring model storage.
  */
 
-import { SupportedPlatform } from './types';
+import { SupportedPlatform } from '../types';
 
 export interface ChildProcessLike {
   stdin?: any;
@@ -44,7 +44,7 @@ export class ProcessManager {
   private static pluginRootDir: string = (() => {
     const p = getNativeNodeModule<any>('path');
     if (typeof __dirname !== 'undefined' && p) {
-      return p.resolve(__dirname, '..');
+      return p.resolve(__dirname, '../..');
     }
     return '/plugin';
   })();

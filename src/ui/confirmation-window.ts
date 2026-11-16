@@ -7,7 +7,7 @@
 
 const { BrowserWindow, screen } = window.require("@electron/remote");
 import type { BrowserWindow as BrowserWindowClass } from '@electron/remote';
-import { ModelPackage } from './types';
+import { ModelPackage } from '../types';
 
 interface ConfirmationWindowOptions {
   model: ModelPackage;
