@@ -8,7 +8,7 @@
  * Crucial: Never mutates message body in Mailspring's SQLite/IndexedDB store.
  */
 
-import React, { useState } from '../utils/react-runtime';
+import React, { useState, useEffect } from '../utils/react-runtime';
 import { TranslationManager } from '../core/translation-manager';
 import { TranslationResult, ProviderId } from '../types';
 import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
@@ -16,6 +16,7 @@ import {
   getMessageTranslationSource,
   sanitizeTranslatedHtml,
   setMessageTranslationPresentation,
+  resetMessageToOriginal,
 } from './message-body-extension';
 
 export interface MessageProps {
@@ -40,6 +41,18 @@ export const MessageTranslatorHeader: React.FC<{
   const [targetLang, setTargetLang] = useState<string>(() => manager.getEffectiveTargetLanguage());
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset translation state when the selected message changes
+  useEffect(() => {
+    // Clear the presentation map entry and restore the original body so formatMessageBody
+    // does not apply a stale translation when the user switches emails.
+    // Also update Mailspring's cache to ensure the original body is rendered.
+    resetMessageToOriginal(message);
+    setViewMode('original');
+    setTranslationResult(null);
+    setDetectedLang(null);
+    setError(null);
+  }, [message.id]);
 
   const languages = getCommonLanguages();
 

@@ -11,6 +11,8 @@ export {
   formatWithPresentation,
   sanitizeTranslatedHtml,
   setMessageTranslationPresentation,
+  clearMessageTranslationPresentation,
+  resetMessageToOriginal,
   clearMessageTranslationPresentations,
   OfflineTranslatorMessageViewExtension,
 } from './message-body-extension';

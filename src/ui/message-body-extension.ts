@@ -17,7 +17,8 @@ export interface MessagePresentation {
 }
 
 const presentations = new Map<string, MessagePresentation>();
-const pendingUpdates = new Map<string, Promise<void>>();
+// Store the original body for each message when first encountered
+const originalBodies = new Map<string, string>();
 
 export function getMessageTranslationSource(message: RenderableMessage): {
   body: string;
@@ -62,7 +63,22 @@ function formatSplitView(original: string, translated: string): string {
 
 export function formatMessageBody(message: RenderableMessage): void {
   const presentation = presentations.get(message.id);
-  if (!presentation) return;
+  
+  if (!presentation) {
+    // If this is a new message we haven't seen before, save its body as the original.
+    // We do NOT strip any HTML here because we want to preserve the exact original body.
+    if (!originalBodies.has(message.id)) {
+      originalBodies.set(message.id, message.body);
+    }
+    // If we have a saved original body and the current body differs, restore it
+    // This handles the case where Mailspring reuses the same message object
+    const savedOriginal = originalBodies.get(message.id);
+    if (savedOriginal && message.body !== savedOriginal) {
+      message.body = savedOriginal;
+    }
+    return;
+  }
+  
   formatWithPresentation(message, presentation);
 }
 
@@ -85,37 +101,11 @@ export function formatWithPresentation(
   if (presentation.mode === 'inline') {
     message.body = presentation.translatedBody;
   } else if (presentation.mode === 'split') {
-    message.body = formatSplitView(message.body, presentation.translatedBody);
+    message.body = formatSplitView(presentation.originalBody, presentation.translatedBody);
+  } else {
+    // mode === 'original': restore the original body
+    message.body = presentation.originalBody;
   }
-}
-
-function updateMessageBodyCache(
-  message: RenderableMessage,
-  originalBody: string,
-  isPlaintext: boolean
-): Promise<void> {
-  const mailspringExports = require('mailspring-exports') as {
-    MessageBodyProcessor?: { updateCacheForMessage: (message: RenderableMessage) => Promise<void> };
-  };
-  const processor = mailspringExports.MessageBodyProcessor;
-  if (!processor || typeof processor.updateCacheForMessage !== 'function') {
-    throw new Error('Mailspring MessageBodyProcessor is unavailable.');
-  }
-
-  const renderingMessage = message.clone ? message.clone() : { ...message };
-  if (isPlaintext) {
-    renderingMessage.plaintext = false;
-  }
-  renderingMessage.body = isPlaintext ? asPlaintextHtml(originalBody) : originalBody;
-
-  const previous = pendingUpdates.get(message.id) || Promise.resolve();
-  const next = previous.catch(() => undefined).then(() => processor.updateCacheForMessage(renderingMessage));
-  pendingUpdates.set(message.id, next);
-  return next.finally(() => {
-    if (pendingUpdates.get(message.id) === next) {
-      pendingUpdates.delete(message.id);
-    }
-  });
 }
 
 export async function sanitizeTranslatedHtml(html: string): Promise<string> {
@@ -129,6 +119,28 @@ export async function sanitizeTranslatedHtml(html: string): Promise<string> {
   return sanitizer.run(html);
 }
 
+// Update Mailspring's cache with the translated body so the user sees the translation.
+async function updateMessageBodyCache(
+  message: RenderableMessage,
+  body: string,
+  isPlaintext: boolean
+): Promise<void> {
+  const mailspringExports = require('mailspring-exports') as {
+    MessageBodyProcessor?: { updateCacheForMessage: (message: RenderableMessage) => Promise<void> };
+  };
+  const processor = mailspringExports.MessageBodyProcessor;
+  if (!processor || typeof processor.updateCacheForMessage !== 'function') {
+    return;
+  }
+
+  const renderingMessage = message.clone ? message.clone() : { ...message };
+  if (isPlaintext) {
+    renderingMessage.plaintext = false;
+  }
+  renderingMessage.body = isPlaintext ? asPlaintextHtml(body) : body;
+  await processor.updateCacheForMessage(renderingMessage);
+}
+
 export async function setMessageTranslationPresentation(
   message: RenderableMessage,
   translation: TranslationResult,
@@ -138,6 +150,14 @@ export async function setMessageTranslationPresentation(
   const previousPresentation = presentations.get(message.id);
   const originalBody = previousPresentation?.originalBody ?? message.body;
   const plaintext = previousPresentation?.isPlaintext ?? Boolean(isPlaintext ?? message.plaintext);
+  
+  // Save the original body so we can restore it when the message is cleared.
+  // IMPORTANT: we must save the original body BEFORE any translation is applied,
+  // so that we always have the truly original message content.
+  if (!originalBodies.has(message.id)) {
+    originalBodies.set(message.id, originalBody);
+  }
+  
   const nextPresentation: MessagePresentation = {
     originalBody,
     translatedBody: translation.translatedText,
@@ -151,22 +171,47 @@ export async function setMessageTranslationPresentation(
     if (oldestId) presentations.delete(oldestId);
   }
 
+  // Apply the presentation immediately by modifying message.body in memory.
+  formatWithPresentation(message, nextPresentation);
+
+  // Update Mailspring's cache so the user sees the translation.
   try {
-    await updateMessageBodyCache(message, originalBody, plaintext);
+    await updateMessageBodyCache(message, message.body, plaintext);
   } catch (error) {
-    if (presentations.get(message.id) === nextPresentation) {
-      if (previousPresentation) {
-        presentations.set(message.id, previousPresentation);
-      } else {
-        presentations.delete(message.id);
-      }
-    }
-    throw error;
+    console.warn('[Offline Translator] Failed to update message cache:', error);
   }
+}
+
+export function clearMessageTranslationPresentation(
+  message: RenderableMessage | string
+): void {
+  const messageId = typeof message === 'string' ? message : message.id;
+  const presentation = presentations.get(messageId);
+  if (presentation && typeof message !== 'string') {
+    // Restore the original body before clearing the presentation
+    message.body = presentation.originalBody;
+  }
+  presentations.delete(messageId);
+}
+
+export function resetMessageToOriginal(message: RenderableMessage): void {
+  const messageId = message.id;
+  const presentation = presentations.get(messageId);
+  
+  if (presentation) {
+    // Restore the original body from the presentation
+    message.body = presentation.originalBody;
+    presentations.delete(messageId);
+  }
+  
+  // We do NOT update Mailspring's cache here. The original body is already in the
+  // database because we never saved the translated body. When the user switches
+  // emails, Mailspring will load the original body from the database.
 }
 
 export function clearMessageTranslationPresentations(): void {
   presentations.clear();
+  originalBodies.clear();
 }
 
 export class OfflineTranslatorMessageViewExtension {
