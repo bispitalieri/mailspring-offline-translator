@@ -23,6 +23,12 @@ const originalBodies = new Map<string, string>();
 const plaintextMessages = new Set<string>();
 // Track the current message ID so we can restore its cache when switching emails
 let currentMessageId: string | null = null;
+// Export a getter for currentMessageId so other modules can access it
+export function currentMessageIdGetter(): string | null {
+  return currentMessageId;
+}
+// Keep a reference to the last translated message object so we can use it for cache restoration
+let lastTranslatedMessage: RenderableMessage | null = null;
 
 export function getMessageTranslationSource(message: RenderableMessage): {
   body: string;
@@ -265,8 +271,6 @@ export async function restoreMessageCache(messageId: string): Promise<void> {
     return;
   }
 
-  const isPlaintext = plaintextMessages.has(messageId);
-
   const mailspringExports = require('mailspring-exports') as {
     MessageBodyProcessor?: { updateCacheForMessage: (message: any) => Promise<void> };
   };
@@ -275,16 +279,29 @@ export async function restoreMessageCache(messageId: string): Promise<void> {
     return;
   }
 
-  // Creiamo un oggetto message minimale per aggiornare la cache.
-  // Mailspring si aspetta un oggetto con un metodo clone(), quindi lo aggiungiamo.
-  const cacheMessage: RenderableMessage = {
-    id: messageId,
-    body: originalBody,
-    plaintext: isPlaintext,
-    clone: function() {
-      return { ...this };
-    },
-  };
+  // Usa il messaggio reale se disponibile, altrimenti crea un oggetto minimale.
+  // Il messaggio reale ha tutti i metodi e le proprietà necessari per Mailspring.
+  let cacheMessage: any;
+  if (lastTranslatedMessage && lastTranslatedMessage.id === messageId) {
+    cacheMessage = lastTranslatedMessage.clone ? lastTranslatedMessage.clone() : { ...lastTranslatedMessage };
+  } else {
+    // Fallback: oggetto message minimale con i metodi richiesti da Mailspring.
+    cacheMessage = {
+      id: messageId,
+      body: originalBody,
+      plaintext: plaintextMessages.has(messageId),
+      clone: function() { return { ...this }; },
+      isFromMe: function() { return false; },
+      hasProperty: function() { return false; },
+      get: function() { return undefined; },
+      set: function() {},
+    };
+  }
+
+  // Imposta il corpo originale e il flag plaintext corretto
+  cacheMessage.body = originalBody;
+  cacheMessage.plaintext = plaintextMessages.has(messageId);
+
   await processor.updateCacheForMessage(cacheMessage);
 }
 
@@ -350,6 +367,7 @@ export async function setMessageTranslationPresentation(
   // Tracciamo il messaggio corrente così sappiamo quale cache ripristinare
   // quando l'utente cambia email.
   currentMessageId = message.id;
+  lastTranslatedMessage = message;
 }
 
 export function clearMessageTranslationPresentation(
@@ -394,6 +412,11 @@ export async function resetMessageToOriginal(message: RenderableMessage): Promis
 
     presentations.delete(messageId);
   }
+
+  // Se il messaggio resettato era l'ultimo messaggio tradotto, pulisci il riferimento
+  if (lastTranslatedMessage && lastTranslatedMessage.id === messageId) {
+    lastTranslatedMessage = null;
+  }
 }
 
 export function clearMessageTranslationPresentations(): void {
@@ -401,6 +424,7 @@ export function clearMessageTranslationPresentations(): void {
   originalBodies.clear();
   plaintextMessages.clear();
   currentMessageId = null;
+  lastTranslatedMessage = null;
 }
 
 export class OfflineTranslatorMessageViewExtension {

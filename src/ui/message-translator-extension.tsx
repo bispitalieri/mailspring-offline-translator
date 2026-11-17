@@ -19,6 +19,8 @@ import {
   setMessageTranslationPresentation,
   resetMessageToOriginal,
   restoreCurrentMessageCache,
+  clearMessageTranslationPresentation,
+  currentMessageIdGetter,
 } from './message-body-extension';
 
 export interface MessageProps {
@@ -47,9 +49,16 @@ export const MessageTranslatorHeader: React.FC<{
   // Reset translation state when the selected message changes
   useEffect(() => {
     // Prima di passare alla nuova email, ripristiniamo la cache dell'email precedente
-    // con il corpo originale così quando l'utente torna indietro vede il messaggio originale.
+    // con il corpo originale e puliamo la presentation così quando l'utente torna indietro
+    // vede il messaggio originale, non la traduzione riapplicata.
     (async () => {
       await restoreCurrentMessageCache();
+      // Puliamo la presentation del messaggio precedente così non viene riapplicata
+      // quando l'utente torna indietro.
+      const prevId = currentMessageIdGetter();
+      if (prevId) {
+        clearMessageTranslationPresentation(prevId);
+      }
       await resetMessageToOriginal(message);
     })();
     setViewMode('original');
