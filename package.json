@@ -33,15 +33,20 @@
     "composer": true
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "adm-zip": "^0.6.1",
     "ctranslate2": "^1.0.0",
     "languagedetect": "^2.0.0"
   },
   "devDependencies": {
-    "@electron/remote": "^2.1.2",
-    "@types/adm-zip": "^0.5.7",
+    "@electron/remote": "^2.1.4",
+    "@types/adm-zip": "^0.6.0",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "onnxruntime-node@1.30.0": true,
+    "protobufjs@7.6.6": true
   }
 }

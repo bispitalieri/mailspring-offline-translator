@@ -16,6 +16,7 @@ import { AppleTranslationProvider } from '../providers/apple-provider';
 import { WindowsAiProvider } from '../providers/windows-provider';
 import { OpusTranslationProvider } from '../providers/opus-provider';
 import { ArgosTranslationProvider } from '../providers/argos-provider';
+import { NllbTranslationProvider } from '../providers/nllb-provider';
 import {
   LanguageDetectionResult,
   LanguagePair,
@@ -75,6 +76,7 @@ export class TranslationManager {
     this.providers.set('windows-ai', new WindowsAiProvider());
     this.providers.set('opus', new OpusTranslationProvider());
     this.providers.set('argos', new ArgosTranslationProvider());
+    this.providers.set('nllb', new NllbTranslationProvider());
   }
 
   /**
@@ -180,18 +182,57 @@ export class TranslationManager {
     return opus.removeModel(fromLang, toLang);
   }
 
+  // -----------------------------------------------------------------------
+  // NLLB-200 model management
+  // -----------------------------------------------------------------------
+
+  public async getInstalledNllbModels(): Promise<LanguagePair[]> {
+    const nllb = this.providers.get('nllb');
+    if (!nllb) {
+      throw new Error('NLLB provider is not registered.');
+    }
+    return nllb.getSupportedLanguages();
+  }
+
+  public async getInstallableNllbModels(): Promise<ModelPackage[]> {
+    const nllb = this.providers.get('nllb');
+    if (!nllb?.listInstallableModels) {
+      throw new Error('NLLB model catalog is not available.');
+    }
+    return nllb.listInstallableModels();
+  }
+
+  public async installNllbModel(
+    onProgress?: (percent: number, message: string) => void
+  ): Promise<boolean> {
+    const nllb = this.providers.get('nllb');
+    if (!nllb?.installModel) {
+      throw new Error('NLLB model installation is not supported by this provider.');
+    }
+    // NLLB is a single multilingual model, so fromLang/toLang are ignored
+    return nllb.installModel('multilingual', 'multilingual', onProgress);
+  }
+
+  public async removeNllbModel(): Promise<boolean> {
+    const nllb = this.providers.get('nllb');
+    if (!nllb?.removeModel) {
+      throw new Error('NLLB model removal is not supported by this provider.');
+    }
+    return nllb.removeModel('multilingual', 'multilingual');
+  }
+
   /**
    * Determines provider priority list based on host OS.
    * OPUS-MT is inserted between the native provider and Argos as a higher-quality offline fallback.
    */
   public getPriorityList(): ProviderId[] {
     if (this.platform === 'darwin') {
-      return ['apple', 'opus', 'argos'];
+      return ['apple', 'nllb', 'opus', 'argos'];
     }
     if (this.platform === 'win32') {
-      return ['windows-ai', 'opus', 'argos'];
+      return ['windows-ai', 'nllb', 'opus', 'argos'];
     }
-    return ['opus', 'argos'];
+    return ['nllb', 'opus', 'argos'];
   }
 
   /**

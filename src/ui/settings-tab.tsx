@@ -32,7 +32,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
   // Offline model management state
   const [models, setModels] = useState<ModelPackage[]>([]);
-  const [modelProviderFilter, setModelProviderFilter] = useState<'argos' | 'opus'>('argos');
+  const [modelProviderFilter, setModelProviderFilter] = useState<'argos' | 'opus' | 'nllb'>('argos');
 
   const [installingModel, setInstallingModel] = useState<string | null>(null);
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null);
@@ -75,6 +75,20 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
   const refreshInstalledModels = async () => {
     const provider = modelProviderFilter;
+
+    if (provider === 'nllb') {
+      // NLLB is a single multilingual model, so listInstallableModels() already
+      // sets isInstalled correctly by checking the required files on disk.
+      // No need to call getInstalledNllbModels() (which returns all 200x199
+      // language pairs regardless of whether the model files actually exist).
+      const availableResult = await manager.getInstallableNllbModels().catch((error) => {
+        throw error;
+      });
+
+      setModels(availableResult);
+      setModelError(null);
+      return;
+    }
 
     if (provider === 'opus') {
       const [installedResult, availableResult] = await Promise.allSettled([
@@ -191,7 +205,14 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     setModelError(null);
     try {
       let installed: boolean;
-      if (pkg.provider === 'opus') {
+      if (pkg.provider === 'nllb') {
+        installed = await manager.installNllbModel(
+          (percent: number, message: string) => setInstallProgress({ percent, message })
+        );
+        if (!installed) {
+          throw new Error('NLLB did not install the model.');
+        }
+      } else if (pkg.provider === 'opus') {
         installed = await manager.installOpusModel(
           pkg.fromCode,
           pkg.toCode,
@@ -223,7 +244,12 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     setModelError(null);
     try {
       let removed: boolean;
-      if (pkg.provider === 'opus') {
+      if (pkg.provider === 'nllb') {
+        removed = await manager.removeNllbModel();
+        if (!removed) {
+          throw new Error('NLLB did not remove the model.');
+        }
+      } else if (pkg.provider === 'opus') {
         removed = await manager.removeOpusModel(pkg.fromCode, pkg.toCode);
         if (!removed) {
           throw new Error(`OPUS did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
@@ -270,7 +296,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           onClick={() => setActiveSubTab('models')}
           className={activeSubTab === 'models' ? 'active' : ''}
         >
-          Offline Models ({modelProviderFilter === 'opus' ? 'OPUS-MT' : 'Argos'})
+          Offline Models ({modelProviderFilter === 'nllb' ? 'NLLB-200' : modelProviderFilter === 'opus' ? 'OPUS-MT' : 'Argos'})
         </button>
         <button
           onClick={() => setActiveSubTab('diagnostics')}
@@ -318,8 +344,9 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </p>
               <div className="offline-translator-provider-grid">
                 {[
-                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → OPUS → Argos; Windows: Windows AI → OPUS → Argos' },
+                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → NLLB → OPUS → Argos; Windows: Windows AI → NLLB → OPUS → Argos' },
                   { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
+                  { id: 'nllb', label: 'NLLB-200 (CTranslate2 int8)', desc: 'Meta NLLB-200: 200 languages, ~600 MB int8 model, auto-unloads after 3 min' },
                   { id: 'opus', label: 'OPUS-MT (CTranslate2)', desc: 'High-quality offline neural translation from HuggingFace models' },
                   { id: 'argos', label: 'Argos Translate (Local Runtime)', desc: 'Offline neural translation using the installed Argos runtime' },
                   { id: 'windows-ai', label: 'Windows AI Native', desc: 'Probed only on Windows 11 Copilot+ PCs' },
@@ -459,14 +486,18 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           <div className="offline-translator-card offline-translator-models-header">
             <div>
               <h4 className="offline-translator-card-title">
-                {modelProviderFilter === 'opus'
-                  ? 'OPUS-MT Neural Translation Models'
-                  : 'Argos Neural Translation Models'}
+                {modelProviderFilter === 'nllb'
+                  ? 'NLLB-200 Neural Translation Model'
+                  : modelProviderFilter === 'opus'
+                    ? 'OPUS-MT Neural Translation Models'
+                    : 'Argos Neural Translation Models'}
               </h4>
               <p className="offline-translator-card-desc">
-                {modelProviderFilter === 'opus'
-                  ? 'OPUS-MT models from HuggingFace provide higher-quality offline translation. They are stored in the plugin\'s data/models/opus folder and run using the native CTranslate2 runtime.'
-                  : 'Downloaded models are stored in the plugin\'s data/models folder and run 100% offline using the native CTranslate2 runtime.'}
+                {modelProviderFilter === 'nllb'
+                  ? 'NLLB-200 from Meta AI supports 200 languages with a single ~600 MB int8 model. Loads on-demand and auto-unloads after 3 minutes of inactivity. License: CC-BY-NC-4.0 (non-commercial).'
+                  : modelProviderFilter === 'opus'
+                    ? 'OPUS-MT models from HuggingFace provide higher-quality offline translation. They are stored in the plugin\'s data/models/opus folder and run using the native CTranslate2 runtime.'
+                    : 'Downloaded models are stored in the plugin\'s data/models folder and run 100% offline using the native CTranslate2 runtime.'}
               </p>
             </div>
             <div className="offline-translator-models-disk">
@@ -481,6 +512,12 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           <div className="offline-translator-card offline-translator-provider-filter">
             <div className="offline-translator-provider-filter-label">Model Provider</div>
             <div className="offline-translator-provider-filter-buttons">
+              <button
+                onClick={() => setModelProviderFilter('nllb')}
+                className={modelProviderFilter === 'nllb' ? 'active' : ''}
+              >
+                NLLB-200 (Meta)
+              </button>
               <button
                 onClick={() => setModelProviderFilter('argos')}
                 className={modelProviderFilter === 'argos' ? 'active' : ''}
