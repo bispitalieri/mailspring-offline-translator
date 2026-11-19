@@ -120,7 +120,6 @@ export const ComposerTranslateModal: React.FC<{
             >
               <option value="auto">Automatic</option>
               <option value="opus">OPUS-MT</option>
-              <option value="argos">Argos Translate</option>
             </select>
             {detectedLang && (
               <span className="offline-translator-detected-lang">

@@ -39,11 +39,11 @@ export class WindowsAiProvider implements ITranslationProvider {
     let reason = 'Native Windows AI Translation is only evaluated on Windows 11.';
     if (this.isWindows) {
       if (this.osBuild < 26100) {
-        reason = `Requires Windows 11 Build 26100+ (Current build: ${this.osBuild}). Bundled Argos Translate runtime is used as local fallback.`;
+        reason = `Requires Windows 11 Build 26100+ (Current build: ${this.osBuild}). Bundled offline translation runtime is used as local fallback.`;
       } else if (!this.hasNPU) {
-        reason = 'No Copilot+ 40+ TOPS NPU detected. Windows App SDK Phi Silica requires an on-device NPU. Using bundled Argos Translate.';
+        reason = 'No Copilot+ 40+ TOPS NPU detected. Windows App SDK Phi Silica requires an on-device NPU. Using bundled offline translation runtime.';
       } else {
-        reason = 'Dedicated offline translation API is not yet standard in Windows App SDK (requires cloud Azure Translator or Phi Silica prompt adaptation). Routed to bundled Argos Translate.';
+        reason = 'Dedicated offline translation API is not yet standard in Windows App SDK (requires cloud Azure Translator or Phi Silica prompt adaptation). Routed to bundled offline translation runtime.';
       }
     }
 
@@ -52,7 +52,7 @@ export class WindowsAiProvider implements ITranslationProvider {
       name: 'Windows AI Native (Phi Silica / Windows App SDK)',
       version: '1.6.0-evaluation',
       platform: ['win32'],
-      description: 'Evaluates Windows App SDK on-device inference. Seamlessly routes to bundled Argos Translate for deterministic bilingual translation.',
+      description: 'Evaluates Windows App SDK on-device inference. Seamlessly routes to bundled offline translation runtime for deterministic bilingual translation.',
       minOSVersion: 'Windows 11 Build 26100+ with 40+ TOPS NPU',
       requiresNPU: true,
       isAvailable: false,
@@ -79,7 +79,7 @@ export class WindowsAiProvider implements ITranslationProvider {
 
   public async translate(request: TranslationRequest): Promise<TranslationResult> {
     throw new Error(
-      'Windows Native AI Translation is unavailable: no native offline translation API found in Windows App SDK without cloud Azure. Please use bundled Argos Translate.'
+      'Windows Native AI Translation is unavailable: no native offline translation API found in Windows App SDK without cloud Azure. Please use the bundled offline translation runtime.'
     );
   }
 

@@ -3,7 +3,7 @@
  * 
  * Implements a native Mailspring PreferencesUIStore tab for:
  * - Default target language (System locale or custom BCP-47)
- * - Preferred Provider selection (Auto, Apple, Windows AI, Argos)
+ * - Preferred Provider selection (Auto, Apple, Windows AI, OPUS, NLLB, Bergamot)
  * - Automatic Fallback switch
  * - Display Mode (Inline, Split/Side-by-side)
  * - Exclusions (Signatures, Quoted replies, Code blocks)
@@ -32,7 +32,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
   // Offline model management state
   const [models, setModels] = useState<ModelPackage[]>([]);
-  const [modelProviderFilter, setModelProviderFilter] = useState<'argos' | 'opus' | 'nllb'>('argos');
+  const [modelProviderFilter, setModelProviderFilter] = useState<'opus' | 'nllb' | 'bergamot'>('opus');
 
   const [installingModel, setInstallingModel] = useState<string | null>(null);
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null);
@@ -90,6 +90,52 @@ export const OfflineTranslatorSettingsTab: React.FC<{
       return;
     }
 
+    if (provider === 'bergamot') {
+      const [installedResult, availableResult] = await Promise.allSettled([
+        manager.getInstalledBergamotModels(),
+        manager.getInstallableBergamotModels(),
+      ]);
+
+      if (installedResult.status === 'rejected' && availableResult.status === 'rejected') {
+        throw installedResult.reason;
+      }
+
+      const installedPairs: LanguagePair[] = installedResult.status === 'fulfilled' ? installedResult.value : [];
+      const availableModels: ModelPackage[] = availableResult.status === 'fulfilled' ? availableResult.value : [];
+      const installed = new Set(
+        installedPairs.map((pair: LanguagePair) => `${pair.source}->${pair.target}`)
+      );
+      const availableKeys = new Set(availableModels.map((model) => `${model.fromCode}->${model.toCode}`));
+      const installedOnlyModels: ModelPackage[] = installedPairs
+        .filter((pair) => !availableKeys.has(`${pair.source}->${pair.target}`))
+        .map((pair) => ({
+          fromCode: pair.source,
+          fromName: pair.sourceName || getLanguageDisplayName(pair.source),
+          toCode: pair.target,
+          toName: pair.targetName || getLanguageDisplayName(pair.target),
+          packageVersion: '',
+          sizeMB: pair.modelSizeMB || 0,
+          isInstalled: true,
+          provider: 'bergamot',
+        }));
+
+      setModels([
+        ...availableModels.map((model) => ({
+          ...model,
+          isInstalled: installed.has(`${model.fromCode}->${model.toCode}`),
+        })),
+        ...installedOnlyModels,
+      ]);
+      setModelError(
+        availableResult.status === 'rejected'
+          ? `Could not load the Bergamot model catalog: ${String(availableResult.reason)}`
+          : installedResult.status === 'rejected'
+            ? `Could not read installed Bergamot models: ${String(installedResult.reason)}`
+            : null
+      );
+      return;
+    }
+
     if (provider === 'opus') {
       const [installedResult, availableResult] = await Promise.allSettled([
         manager.getInstalledOpusModels(),
@@ -133,49 +179,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
             ? `Could not read installed OPUS models: ${String(installedResult.reason)}`
             : null
       );
-    } else {
-      const [installedResult, availableResult] = await Promise.allSettled([
-        manager.getInstalledArgosModels(),
-        manager.getInstallableArgosModels(),
-      ]);
-
-      if (installedResult.status === 'rejected' && availableResult.status === 'rejected') {
-        throw installedResult.reason;
-      }
-
-      const installedPairs: LanguagePair[] = installedResult.status === 'fulfilled' ? installedResult.value : [];
-      const availableModels: ModelPackage[] = availableResult.status === 'fulfilled' ? availableResult.value : [];
-      const installed = new Set(
-        installedPairs.map((pair: LanguagePair) => `${pair.source}->${pair.target}`)
-      );
-      const availableKeys = new Set(availableModels.map((model) => `${model.fromCode}->${model.toCode}`));
-      const installedOnlyModels: ModelPackage[] = installedPairs
-        .filter((pair) => !availableKeys.has(`${pair.source}->${pair.target}`))
-        .map((pair) => ({
-          fromCode: pair.source,
-          fromName: pair.sourceName || getLanguageDisplayName(pair.source),
-          toCode: pair.target,
-          toName: pair.targetName || getLanguageDisplayName(pair.target),
-          packageVersion: '',
-          sizeMB: pair.modelSizeMB || 0,
-          isInstalled: true,
-          provider: 'argos',
-        }));
-
-      setModels([
-        ...availableModels.map((model) => ({
-          ...model,
-          isInstalled: installed.has(`${model.fromCode}->${model.toCode}`),
-        })),
-        ...installedOnlyModels,
-      ]);
-      setModelError(
-        availableResult.status === 'rejected'
-          ? `Could not load the Argos model catalog: ${String(availableResult.reason)}`
-          : installedResult.status === 'rejected'
-            ? `Could not read installed Argos models: ${String(installedResult.reason)}`
-            : null
-      );
     }
   };
 
@@ -212,6 +215,15 @@ export const OfflineTranslatorSettingsTab: React.FC<{
         if (!installed) {
           throw new Error('NLLB did not install the model.');
         }
+      } else if (pkg.provider === 'bergamot') {
+        installed = await manager.installBergamotModel(
+          pkg.fromCode,
+          pkg.toCode,
+          (percent: number, message: string) => setInstallProgress({ percent, message })
+        );
+        if (!installed) {
+          throw new Error(`Bergamot did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        }
       } else if (pkg.provider === 'opus') {
         installed = await manager.installOpusModel(
           pkg.fromCode,
@@ -220,15 +232,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
         );
         if (!installed) {
           throw new Error(`OPUS did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
-        }
-      } else {
-        installed = await manager.installArgosModel(
-          pkg.fromCode,
-          pkg.toCode,
-          (percent: number, message: string) => setInstallProgress({ percent, message })
-        );
-        if (!installed) {
-          throw new Error(`Argos did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
         }
       }
       await refreshInstalledModels();
@@ -249,15 +252,15 @@ export const OfflineTranslatorSettingsTab: React.FC<{
         if (!removed) {
           throw new Error('NLLB did not remove the model.');
         }
+      } else if (pkg.provider === 'bergamot') {
+        removed = await manager.removeBergamotModel(pkg.fromCode, pkg.toCode);
+        if (!removed) {
+          throw new Error(`Bergamot did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        }
       } else if (pkg.provider === 'opus') {
         removed = await manager.removeOpusModel(pkg.fromCode, pkg.toCode);
         if (!removed) {
           throw new Error(`OPUS did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
-        }
-      } else {
-        removed = await manager.removeArgosModel(pkg.fromCode, pkg.toCode);
-        if (!removed) {
-          throw new Error(`Argos did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
         }
       }
       await refreshInstalledModels();
@@ -296,7 +299,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           onClick={() => setActiveSubTab('models')}
           className={activeSubTab === 'models' ? 'active' : ''}
         >
-          Offline Models ({modelProviderFilter === 'nllb' ? 'NLLB-200' : modelProviderFilter === 'opus' ? 'OPUS-MT' : 'Argos'})
+          Offline Models ({modelProviderFilter === 'nllb' ? 'NLLB-200' : modelProviderFilter === 'opus' ? 'OPUS-MT' : 'Bergamot'})
         </button>
         <button
           onClick={() => setActiveSubTab('diagnostics')}
@@ -344,11 +347,11 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </p>
               <div className="offline-translator-provider-grid">
                 {[
-                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → NLLB → OPUS → Argos; Windows: Windows AI → NLLB → OPUS → Argos' },
+                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → NLLB → Bergamot → OPUS; Windows: Windows AI → NLLB → Bergamot → OPUS' },
                   { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
                   { id: 'nllb', label: 'NLLB-200 (CTranslate2 int8)', desc: 'Meta NLLB-200: 200 languages, ~600 MB int8 model, auto-unloads after 3 min' },
+                  { id: 'bergamot', label: 'Bergamot WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
                   { id: 'opus', label: 'OPUS-MT (CTranslate2)', desc: 'High-quality offline neural translation from HuggingFace models' },
-                  { id: 'argos', label: 'Argos Translate (Local Runtime)', desc: 'Offline neural translation using the installed Argos runtime' },
                   { id: 'windows-ai', label: 'Windows AI Native', desc: 'Probed only on Windows 11 Copilot+ PCs' },
                 ].map((p) => (
                   <label
@@ -383,7 +386,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                 <div>
                   <span className="offline-translator-checkbox-label">Enable automatic fallback</span>
                   <p className="offline-translator-checkbox-desc">
-                    If preferred provider encounters an unsupported language pair, smoothly fall back to OPUS-MT or Argos.
+                    If preferred provider encounters an unsupported language pair, smoothly fall back to the next available provider.
                   </p>
                 </div>
               </label>
@@ -488,16 +491,20 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               <h4 className="offline-translator-card-title">
                 {modelProviderFilter === 'nllb'
                   ? 'NLLB-200 Neural Translation Model'
-                  : modelProviderFilter === 'opus'
-                    ? 'OPUS-MT Neural Translation Models'
-                    : 'Argos Neural Translation Models'}
+                  : modelProviderFilter === 'bergamot'
+                    ? 'Bergamot WASM Translation Models'
+                    : modelProviderFilter === 'opus'
+                      ? 'OPUS-MT Neural Translation Models'
+                      : 'Bergamot WASM Translation Models'}
               </h4>
               <p className="offline-translator-card-desc">
                 {modelProviderFilter === 'nllb'
                   ? 'NLLB-200 from Meta AI supports 200 languages with a single ~600 MB int8 model. Loads on-demand and auto-unloads after 3 minutes of inactivity. License: CC-BY-NC-4.0 (non-commercial).'
-                  : modelProviderFilter === 'opus'
-                    ? 'OPUS-MT models from HuggingFace provide higher-quality offline translation. They are stored in the plugin\'s data/models/opus folder and run using the native CTranslate2 runtime.'
-                    : 'Downloaded models are stored in the plugin\'s data/models folder and run 100% offline using the native CTranslate2 runtime.'}
+                  : modelProviderFilter === 'bergamot'
+                    ? 'Bergamot from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.'
+                    : modelProviderFilter === 'opus'
+                      ? 'OPUS-MT models from HuggingFace provide higher-quality offline translation. They are stored in the plugin\'s data/models/opus folder and run using the native CTranslate2 runtime.'
+                      : 'Bergamot from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.'}
               </p>
             </div>
             <div className="offline-translator-models-disk">
@@ -519,10 +526,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                 NLLB-200 (Meta)
               </button>
               <button
-                onClick={() => setModelProviderFilter('argos')}
-                className={modelProviderFilter === 'argos' ? 'active' : ''}
+                onClick={() => setModelProviderFilter('bergamot')}
+                className={modelProviderFilter === 'bergamot' ? 'active' : ''}
               >
-                Argos Translate
+                Bergamot (Mozilla)
               </button>
               <button
                 onClick={() => setModelProviderFilter('opus')}
@@ -536,7 +543,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           {modelError && (
             <div className="offline-translator-error" role="alert">
               <strong>
-                {modelProviderFilter === 'opus' ? 'OPUS' : 'Argos'} model management issue.
+                {modelProviderFilter === 'bergamot' ? 'Bergamot' : modelProviderFilter === 'opus' ? 'OPUS' : 'NLLB'} model management issue.
               </strong>{' '}{modelError}
             </div>
           )}
@@ -567,13 +574,13 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               <tbody>
                 {modelsLoading && (
                   <tr><td colSpan={5} className="offline-translator-table-empty">
-                    Loading {modelProviderFilter === 'opus' ? 'OPUS-MT' : 'Argos'} models...
+                    Loading {modelProviderFilter === 'bergamot' ? 'Bergamot' : modelProviderFilter === 'opus' ? 'OPUS-MT' : 'NLLB'} models...
                   </td></tr>
                 )}
                 {!modelsLoading && filteredModels.length === 0 && (
                   <tr><td colSpan={5} className="offline-translator-table-empty">
                     {models.length === 0
-                      ? `No ${modelProviderFilter === 'opus' ? 'OPUS-MT' : 'Argos'} models are available. Check your network connection.`
+                      ? `No ${modelProviderFilter === 'bergamot' ? 'Bergamot' : modelProviderFilter === 'opus' ? 'OPUS-MT' : 'NLLB'} models are available. Check your network connection.`
                       : 'No models match your search criteria.'}
                   </td></tr>
                 )}

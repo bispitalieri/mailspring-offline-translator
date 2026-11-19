@@ -2,7 +2,7 @@
  * Mailspring Offline Translation Manager
  * 
  * Orchestrator handling:
- * - Operating-system aware provider resolution priority (macOS: Apple -> Argos; Windows: Windows AI -> Argos; Linux: Argos)
+ * - Operating-system aware provider resolution priority (macOS: Apple -> NLLB -> Bergamot -> OPUS; Windows: Windows AI -> NLLB -> Bergamot -> OPUS; Linux: NLLB -> Bergamot -> OPUS)
  * - Automatic graceful fallback on provider failure or missing language pairs
  * - In-flight duplicate request deduplication
  * - SHA-256 local translation caching
@@ -15,8 +15,8 @@ import { ITranslationProvider } from '../providers/provider-interface';
 import { AppleTranslationProvider } from '../providers/apple-provider';
 import { WindowsAiProvider } from '../providers/windows-provider';
 import { OpusTranslationProvider } from '../providers/opus-provider';
-import { ArgosTranslationProvider } from '../providers/argos-provider';
 import { NllbTranslationProvider } from '../providers/nllb-provider';
+import { BergamotTranslationProvider } from '../providers/bergamot-provider';
 import {
   LanguageDetectionResult,
   LanguagePair,
@@ -75,8 +75,8 @@ export class TranslationManager {
     this.providers.set('apple', new AppleTranslationProvider());
     this.providers.set('windows-ai', new WindowsAiProvider());
     this.providers.set('opus', new OpusTranslationProvider());
-    this.providers.set('argos', new ArgosTranslationProvider());
     this.providers.set('nllb', new NllbTranslationProvider());
+    this.providers.set('bergamot', new BergamotTranslationProvider());
   }
 
   /**
@@ -110,41 +110,6 @@ export class TranslationManager {
     return this.getProvidersInfo();
   }
 
-  public async getInstalledArgosModels(): Promise<LanguagePair[]> {
-    const argos = this.providers.get('argos');
-    if (!argos) {
-      throw new Error('Argos provider is not registered.');
-    }
-    return argos.getSupportedLanguages();
-  }
-
-  public async getInstallableArgosModels(): Promise<ModelPackage[]> {
-    const argos = this.providers.get('argos');
-    if (!argos?.listInstallableModels) {
-      throw new Error('Argos model catalog is not available.');
-    }
-    return argos.listInstallableModels();
-  }
-
-  public async installArgosModel(
-    fromLang: string,
-    toLang: string,
-    onProgress?: (percent: number, message: string) => void
-  ): Promise<boolean> {
-    const argos = this.providers.get('argos');
-    if (!argos?.installModel) {
-      throw new Error('Argos model installation is not supported by this provider.');
-    }
-    return argos.installModel(fromLang, toLang, onProgress);
-  }
-
-  public async removeArgosModel(fromLang: string, toLang: string): Promise<boolean> {
-    const argos = this.providers.get('argos');
-    if (!argos?.removeModel) {
-      throw new Error('Argos model removal is not supported by this provider.');
-    }
-    return argos.removeModel(fromLang, toLang);
-  }
 
   public async getInstalledOpusModels(): Promise<LanguagePair[]> {
     const opus = this.providers.get('opus');
@@ -221,18 +186,58 @@ export class TranslationManager {
     return nllb.removeModel('multilingual', 'multilingual');
   }
 
+  // -----------------------------------------------------------------------
+  // Bergamot model management
+  // -----------------------------------------------------------------------
+
+  public async getInstalledBergamotModels(): Promise<LanguagePair[]> {
+    const bergamot = this.providers.get('bergamot');
+    if (!bergamot) {
+      throw new Error('Bergamot provider is not registered.');
+    }
+    return bergamot.getSupportedLanguages();
+  }
+
+  public async getInstallableBergamotModels(): Promise<ModelPackage[]> {
+    const bergamot = this.providers.get('bergamot');
+    if (!bergamot?.listInstallableModels) {
+      throw new Error('Bergamot model catalog is not available.');
+    }
+    return bergamot.listInstallableModels();
+  }
+
+  public async installBergamotModel(
+    fromLang: string,
+    toLang: string,
+    onProgress?: (percent: number, message: string) => void
+  ): Promise<boolean> {
+    const bergamot = this.providers.get('bergamot');
+    if (!bergamot?.installModel) {
+      throw new Error('Bergamot model installation is not supported by this provider.');
+    }
+    return bergamot.installModel(fromLang, toLang, onProgress);
+  }
+
+  public async removeBergamotModel(fromLang: string, toLang: string): Promise<boolean> {
+    const bergamot = this.providers.get('bergamot');
+    if (!bergamot?.removeModel) {
+      throw new Error('Bergamot model removal is not supported by this provider.');
+    }
+    return bergamot.removeModel(fromLang, toLang);
+  }
+
   /**
    * Determines provider priority list based on host OS.
-   * OPUS-MT is inserted between the native provider and Argos as a higher-quality offline fallback.
+   * OPUS-MT is inserted after the native provider as a higher-quality offline fallback.
    */
   public getPriorityList(): ProviderId[] {
     if (this.platform === 'darwin') {
-      return ['apple', 'nllb', 'opus', 'argos'];
+      return ['apple', 'nllb', 'bergamot', 'opus'];
     }
     if (this.platform === 'win32') {
-      return ['windows-ai', 'nllb', 'opus', 'argos'];
+      return ['windows-ai', 'nllb', 'bergamot', 'opus'];
     }
-    return ['nllb', 'opus', 'argos'];
+    return ['nllb', 'bergamot', 'opus'];
   }
 
   /**
@@ -407,8 +412,8 @@ export class TranslationManager {
   ): Promise<TranslationResult> {
     const provider = await this.resolveProvider(sourceLang, targetLang);
     if (!provider) {
-      const argosInfo = this.providers.get('argos')?.getInfo();
-      const detail = argosInfo?.unavailabilityReason;
+      const opusInfo = this.providers.get('opus')?.getInfo();
+      const detail = opusInfo?.unavailabilityReason;
       throw new Error(
         `No offline translation provider is available for ${sourceLang} -> ${targetLang}. ${
           detail || 'Ensure a supported offline provider and language models are installed.'

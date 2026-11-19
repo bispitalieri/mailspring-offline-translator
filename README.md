@@ -6,8 +6,8 @@ Private, offline email translation for [Mailspring](https://getmailspring.com/).
 
 - On macOS 15+, the plugin can use Apple's Translation framework.
 - The cross-platform fallback runs CTranslate2 through its native Node.js binding (Node.js 20.19 or later).
-- Language packages are downloaded from the official Argos Open Tech catalog only after the user confirms the download in Preferences.
-- `.argosmodel` packages are ZIP archives. The plugin extracts and validates each model in its own `data/models` directory. Translation inference then runs offline.
+- Language packages are downloaded from HuggingFace only after the user confirms the download in Preferences.
+- OPUS-MT models are extracted and validated in their own `data/models/opus` directory. Translation inference then runs offline.
 - The CTranslate2 native binding currently supports macOS x64/arm64, Windows x64, and Linux x64; Linux ARM64 is not supported by the binding package.
 
 ## Build and install
@@ -26,7 +26,7 @@ To create a release archive, run `npm run package` from this directory. Release 
 
 ## Privacy
 
-The Argos catalog and model files are accessed only for catalog refreshes and user-requested downloads. Translation itself uses the local model and does not make network requests. The local translation cache can be cleared from Preferences.
+The HuggingFace catalog and model files are accessed only for catalog refreshes and user-requested downloads. Translation itself uses the local model and does not make network requests. The local translation cache can be cleared from Preferences.
 
 ## License
 

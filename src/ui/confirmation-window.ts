@@ -2,7 +2,7 @@
  * Electron-based Confirmation Window for Model Downloads
  * 
  * Creates a separate modal BrowserWindow using @electron/remote to prompt
- * for explicit user consent before downloading Argos translation models.
+ * for explicit user consent before downloading translation models.
  */
 
 const { BrowserWindow, screen } = window.require("@electron/remote");
@@ -119,7 +119,7 @@ class ModelDownloadConfirmationWindow {
   }
 
   private getHTML(model: ModelPackage): string {
-    const sizeDisplay = model.sizeMB > 0 ? `~${model.sizeMB} MB` : 'Not provided by Argos';
+    const sizeDisplay = model.sizeMB > 0 ? `~${model.sizeMB} MB` : 'Not provided';
 
     return `
 <!DOCTYPE html>
@@ -263,7 +263,7 @@ class ModelDownloadConfirmationWindow {
 
   <div class="info-row">
     <span class="info-label">Engine:</span>
-    <span class="info-value">Argos Translate (CTranslate2)</span>
+    <span class="info-value">CTranslate2</span>
   </div>
 
   <div class="info-row">

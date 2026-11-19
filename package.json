@@ -33,6 +33,7 @@
     "composer": true
   },
   "dependencies": {
+    "@browsermt/bergamot-translator": "^0.4.9",
     "@huggingface/transformers": "^4.3.2",
     "adm-zip": "^0.6.1",
     "ctranslate2": "^1.0.0",
