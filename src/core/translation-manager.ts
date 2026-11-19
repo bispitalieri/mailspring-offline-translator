@@ -2,7 +2,7 @@
  * Mailspring Offline Translation Manager
  * 
  * Orchestrator handling:
- * - Operating-system aware provider resolution priority (macOS: Apple -> NLLB -> Bergamot -> OPUS; Windows: Windows AI -> NLLB -> Bergamot -> OPUS; Linux: NLLB -> Bergamot -> OPUS)
+ * - Operating-system aware provider resolution priority (macOS: Apple -> NLLB -> Bergamot; Windows: Windows AI -> NLLB -> Bergamot; Linux: NLLB -> Bergamot)
  * - Automatic graceful fallback on provider failure or missing language pairs
  * - In-flight duplicate request deduplication
  * - SHA-256 local translation caching
@@ -14,7 +14,6 @@
 import { ITranslationProvider } from '../providers/provider-interface';
 import { AppleTranslationProvider } from '../providers/apple-provider';
 import { WindowsAiProvider } from '../providers/windows-provider';
-import { OpusTranslationProvider } from '../providers/opus-provider';
 import { NllbTranslationProvider } from '../providers/nllb-provider';
 import { BergamotTranslationProvider } from '../providers/bergamot-provider';
 import {
@@ -74,7 +73,6 @@ export class TranslationManager {
   private initDefaultProviders(): void {
     this.providers.set('apple', new AppleTranslationProvider());
     this.providers.set('windows-ai', new WindowsAiProvider());
-    this.providers.set('opus', new OpusTranslationProvider());
     this.providers.set('nllb', new NllbTranslationProvider());
     this.providers.set('bergamot', new BergamotTranslationProvider());
   }
@@ -111,41 +109,6 @@ export class TranslationManager {
   }
 
 
-  public async getInstalledOpusModels(): Promise<LanguagePair[]> {
-    const opus = this.providers.get('opus');
-    if (!opus) {
-      throw new Error('OPUS provider is not registered.');
-    }
-    return opus.getSupportedLanguages();
-  }
-
-  public async getInstallableOpusModels(): Promise<ModelPackage[]> {
-    const opus = this.providers.get('opus');
-    if (!opus?.listInstallableModels) {
-      throw new Error('OPUS model catalog is not available.');
-    }
-    return opus.listInstallableModels();
-  }
-
-  public async installOpusModel(
-    fromLang: string,
-    toLang: string,
-    onProgress?: (percent: number, message: string) => void
-  ): Promise<boolean> {
-    const opus = this.providers.get('opus');
-    if (!opus?.installModel) {
-      throw new Error('OPUS model installation is not supported by this provider.');
-    }
-    return opus.installModel(fromLang, toLang, onProgress);
-  }
-
-  public async removeOpusModel(fromLang: string, toLang: string): Promise<boolean> {
-    const opus = this.providers.get('opus');
-    if (!opus?.removeModel) {
-      throw new Error('OPUS model removal is not supported by this provider.');
-    }
-    return opus.removeModel(fromLang, toLang);
-  }
 
   // -----------------------------------------------------------------------
   // NLLB-200 model management
@@ -228,16 +191,15 @@ export class TranslationManager {
 
   /**
    * Determines provider priority list based on host OS.
-   * OPUS-MT is inserted after the native provider as a higher-quality offline fallback.
    */
   public getPriorityList(): ProviderId[] {
     if (this.platform === 'darwin') {
-      return ['apple', 'nllb', 'bergamot', 'opus'];
+      return ['apple', 'nllb', 'bergamot'];
     }
     if (this.platform === 'win32') {
-      return ['windows-ai', 'nllb', 'bergamot', 'opus'];
+      return ['windows-ai', 'nllb', 'bergamot'];
     }
-    return ['nllb', 'bergamot', 'opus'];
+    return ['nllb', 'bergamot'];
   }
 
   /**
@@ -412,12 +374,8 @@ export class TranslationManager {
   ): Promise<TranslationResult> {
     const provider = await this.resolveProvider(sourceLang, targetLang);
     if (!provider) {
-      const opusInfo = this.providers.get('opus')?.getInfo();
-      const detail = opusInfo?.unavailabilityReason;
       throw new Error(
-        `No offline translation provider is available for ${sourceLang} -> ${targetLang}. ${
-          detail || 'Ensure a supported offline provider and language models are installed.'
-        }`
+        `No offline translation provider is available for ${sourceLang} -> ${targetLang}. Ensure a supported offline provider and language models are installed.`
       );
     }
 

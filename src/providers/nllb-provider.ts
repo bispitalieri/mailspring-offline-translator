@@ -460,10 +460,10 @@ export class NllbTranslationProvider implements ITranslationProvider {
   // Model management (download / install / remove)
   // -----------------------------------------------------------------------
 
-  /**
-   * Returns a single "installable" model package representing the NLLB-200 model.
-    * Unlike OPUS which has per-pair models, NLLB is a single multilingual model.
-   */
+ /**
+  * Returns a single "installable" model package representing the NLLB-200 model.
+  * NLLB is a single multilingual model covering 200 languages.
+  */
   public async listInstallableModels(): Promise<ModelPackage[]> {
     const installed = await this.isModelInstalled();
     return [

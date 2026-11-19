@@ -14,11 +14,11 @@ test('SHA-256 generates deterministic 64-character hex digests', () => {
 
 test('TranslationCache stores, retrieves, and hits cache', () => {
   const cache = new TranslationCache(10, 24); // 10MB, 24h
-  const key = cache.generateKey('Test message', 'en', 'it', 'opus');
+  const key = cache.generateKey('Test message', 'en', 'it', 'nllb');
 
   assert.equal(cache.get(key), null);
 
-  cache.set(key, 'Messaggio di prova', 'en', 'it', 'opus');
+  cache.set(key, 'Messaggio di prova', 'en', 'it', 'nllb');
 
   const retrieved = cache.get(key);
   assert.ok(retrieved !== null);
@@ -34,11 +34,11 @@ test('TranslationCache stores, retrieves, and hits cache', () => {
 
 test('TranslationCache clear purges all items and resets stats', () => {
   const cache = new TranslationCache(10, 24);
-  const key1 = cache.generateKey('Text 1', 'en', 'it', 'opus');
-  const key2 = cache.generateKey('Text 2', 'en', 'it', 'opus');
+  const key1 = cache.generateKey('Text 1', 'en', 'it', 'nllb');
+  const key2 = cache.generateKey('Text 2', 'en', 'it', 'nllb');
 
-  cache.set(key1, 'Testo 1', 'en', 'it', 'opus');
-  cache.set(key2, 'Testo 2', 'en', 'it', 'opus');
+  cache.set(key1, 'Testo 1', 'en', 'it', 'nllb');
+  cache.set(key2, 'Testo 2', 'en', 'it', 'nllb');
 
   assert.equal(cache.getStats().entryCount, 2);
 

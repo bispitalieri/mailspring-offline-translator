@@ -4,7 +4,7 @@
 
 export type SupportedPlatform = 'darwin' | 'win32' | 'linux';
 
-export type ProviderId = 'apple' | 'windows-ai' | 'opus' | 'nllb' | 'bergamot' | 'auto';
+export type ProviderId = 'apple' | 'windows-ai' | 'nllb' | 'bergamot' | 'auto';
 
 export interface ProviderInfo {
   id: ProviderId;

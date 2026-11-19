@@ -5,10 +5,9 @@ Private, offline email translation for [Mailspring](https://getmailspring.com/).
 ## Translation and models
 
 - On macOS 15+, the plugin can use Apple's Translation framework.
-- The cross-platform fallback runs CTranslate2 through its native Node.js binding (Node.js 20.19 or later).
-- Language packages are downloaded from HuggingFace only after the user confirms the download in Preferences.
-- OPUS-MT models are extracted and validated in their own `data/models/opus` directory. Translation inference then runs offline.
-- The CTranslate2 native binding currently supports macOS x64/arm64, Windows x64, and Linux x64; Linux ARM64 is not supported by the binding package.
+- Cross-platform translation is provided by NLLB-200 (Meta) and Bergamot (Mozilla).
+- Language packages are downloaded only after the user confirms the download in Preferences.
+- Translation inference runs entirely offline.
 
 ## Build and install
 
@@ -22,11 +21,11 @@ npm run build
 
 Copy the plugin directory to Mailspring's packages directory and restart Mailspring. Use **Preferences > Offline Translator > Offline Models** to choose, download, or remove language packages.
 
-To create a release archive, run `npm run package` from this directory. Release archives include the production Node.js dependencies and native CTranslate2 runtime.
+To create a release archive, run `npm run package` from this directory.
 
 ## Privacy
 
-The HuggingFace catalog and model files are accessed only for catalog refreshes and user-requested downloads. Translation itself uses the local model and does not make network requests. The local translation cache can be cleared from Preferences.
+The model catalog and files are accessed only for catalog refreshes and user-requested downloads. Translation itself uses the local model and does not make network requests. The local translation cache can be cleared from Preferences.
 
 ## License
 

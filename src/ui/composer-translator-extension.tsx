@@ -119,7 +119,6 @@ export const ComposerTranslateModal: React.FC<{
               onChange={(e) => setSelectedProvider(e.target.value as ProviderId)}
             >
               <option value="auto">Automatic</option>
-              <option value="opus">OPUS-MT</option>
             </select>
             {detectedLang && (
               <span className="offline-translator-detected-lang">

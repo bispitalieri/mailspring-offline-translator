@@ -31,10 +31,10 @@ Mailspring Offline Translator provides private, on-device email translation embe
         JSON Lines IPC │              │              │ JSON Lines IPC
         (stdin/stdout) │              │              │ (stdin/stdout)
                        ▼              ▼              ▼
-              ┌────────────────┐  ┌───────┐  ┌────────────────┐
-              │ Apple Helper   │  │ WinAI │  │  OPUS Worker   │
-              │ (Swift 6 /     │  │ Probe │  │ (CTranslate2)  │
-              │  macOS 15)     │  │ (NPU) │  └────────────────┘
+              ┌────────────────┐  ┌───────┐
+              │ Apple Helper   │  │ WinAI │
+              │ (Swift 6 /     │  │ Probe │
+              │  macOS 15)     │  │ (NPU) │
               └────────────────┘  └───────┘
 ```
 
@@ -46,7 +46,7 @@ Mailspring uses an internal `ComponentRegistry` inside its Electron renderer thr
 
 1. **`message:BodyHeader`**:
    - Injected directly into the email reading view.
-   - Shows automatic language detection (`Italian → English`), provider identification badge (`Apple Translation`, `OPUS-MT`), original vs. translated toggle, side-by-side split comparison, and instant language switcher.
+   - Shows automatic language detection (`Italian → English`), provider identification badge (`Apple Translation`), original vs. translated toggle, side-by-side split comparison, and instant language switcher.
    - **Database Invariant**: Never writes translated content to SQLite/IndexedDB (`MessageStore`). Only ephemeral UI state is rendered.
 
 2. **`Composer:ActionButton`**:
