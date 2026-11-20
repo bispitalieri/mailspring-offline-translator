@@ -66,15 +66,15 @@ class MockProvider implements ITranslationProvider {
 
 test('TranslationManager prioritizes provider and falls back when unsupported', async () => {
   const mockApple = new MockProvider('apple', true, ['es']); // only supports es
-  const mockNllb = new MockProvider('nllb', true, ['es', 'it']); // supports it
+  const mockBergamot = new MockProvider('bergamot', true, ['es', 'it']); // supports it
 
   const customProviders = new Map();
   customProviders.set('apple', mockApple);
-  customProviders.set('nllb', mockNllb);
+  customProviders.set('bergamot', mockBergamot);
 
   const manager = new TranslationManager({ preferredProvider: 'auto', autoFallback: true }, customProviders);
 
-  // Translating to 'it' (unsupported by Apple) should fallback to NLLB
+  // Translating to 'it' (unsupported by Apple) should fallback to Bergamot
   const res = await manager.translate({
     id: 'req1',
     text: 'Hello friend',
@@ -82,7 +82,7 @@ test('TranslationManager prioritizes provider and falls back when unsupported', 
     targetLang: 'it',
   });
 
-  assert.equal(res.providerUsed, 'nllb');
+  assert.equal(res.providerUsed, 'bergamot');
   assert.equal(res.targetLang, 'it');
 });
 
@@ -101,13 +101,13 @@ test('TranslationManager returns identical text if source equals target', async 
 
 test('TranslationManager deduplicates concurrent identical requests', async () => {
   let callCount = 0;
-  const mockSlow = new MockProvider('nllb', true, ['it'], (t) => {
+  const mockSlow = new MockProvider('bergamot', true, ['it'], (t) => {
     callCount++;
     return `Tradotto: ${t}`;
   });
 
   const customProviders = new Map();
-  customProviders.set('nllb', mockSlow);
+  customProviders.set('bergamot', mockSlow);
 
   const manager = new TranslationManager({ cacheEnabled: false }, customProviders);
 

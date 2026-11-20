@@ -2,7 +2,7 @@
  * Mailspring Offline Translation Manager
  * 
  * Orchestrator handling:
- * - Operating-system aware provider resolution priority (macOS: Apple -> NLLB -> Bergamot; Windows: Windows AI -> NLLB -> Bergamot; Linux: NLLB -> Bergamot)
+ * - Operating-system aware provider resolution priority (macOS: Apple -> Bergamot; Windows: Windows AI -> Bergamot; Linux: Bergamot)
  * - Automatic graceful fallback on provider failure or missing language pairs
  * - In-flight duplicate request deduplication
  * - SHA-256 local translation caching
@@ -14,7 +14,6 @@
 import { ITranslationProvider } from '../providers/provider-interface';
 import { AppleTranslationProvider } from '../providers/apple-provider';
 import { WindowsAiProvider } from '../providers/windows-provider';
-import { NllbTranslationProvider } from '../providers/nllb-provider';
 import { BergamotTranslationProvider } from '../providers/bergamot-provider';
 import {
   LanguageDetectionResult,
@@ -73,7 +72,6 @@ export class TranslationManager {
   private initDefaultProviders(): void {
     this.providers.set('apple', new AppleTranslationProvider());
     this.providers.set('windows-ai', new WindowsAiProvider());
-    this.providers.set('nllb', new NllbTranslationProvider());
     this.providers.set('bergamot', new BergamotTranslationProvider());
   }
 
@@ -110,44 +108,6 @@ export class TranslationManager {
 
 
 
-  // -----------------------------------------------------------------------
-  // NLLB-200 model management
-  // -----------------------------------------------------------------------
-
-  public async getInstalledNllbModels(): Promise<LanguagePair[]> {
-    const nllb = this.providers.get('nllb');
-    if (!nllb) {
-      throw new Error('NLLB provider is not registered.');
-    }
-    return nllb.getSupportedLanguages();
-  }
-
-  public async getInstallableNllbModels(): Promise<ModelPackage[]> {
-    const nllb = this.providers.get('nllb');
-    if (!nllb?.listInstallableModels) {
-      throw new Error('NLLB model catalog is not available.');
-    }
-    return nllb.listInstallableModels();
-  }
-
-  public async installNllbModel(
-    onProgress?: (percent: number, message: string) => void
-  ): Promise<boolean> {
-    const nllb = this.providers.get('nllb');
-    if (!nllb?.installModel) {
-      throw new Error('NLLB model installation is not supported by this provider.');
-    }
-    // NLLB is a single multilingual model, so fromLang/toLang are ignored
-    return nllb.installModel('multilingual', 'multilingual', onProgress);
-  }
-
-  public async removeNllbModel(): Promise<boolean> {
-    const nllb = this.providers.get('nllb');
-    if (!nllb?.removeModel) {
-      throw new Error('NLLB model removal is not supported by this provider.');
-    }
-    return nllb.removeModel('multilingual', 'multilingual');
-  }
 
   // -----------------------------------------------------------------------
   // Bergamot model management
@@ -194,12 +154,12 @@ export class TranslationManager {
    */
   public getPriorityList(): ProviderId[] {
     if (this.platform === 'darwin') {
-      return ['apple', 'nllb', 'bergamot'];
+      return ['apple', 'bergamot'];
     }
     if (this.platform === 'win32') {
-      return ['windows-ai', 'nllb', 'bergamot'];
+      return ['windows-ai', 'bergamot'];
     }
-    return ['nllb', 'bergamot'];
+    return ['bergamot'];
   }
 
   /**

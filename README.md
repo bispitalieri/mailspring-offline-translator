@@ -5,7 +5,7 @@ Private, offline email translation for [Mailspring](https://getmailspring.com/).
 ## Translation and models
 
 - On macOS 15+, the plugin can use Apple's Translation framework.
-- Cross-platform translation is provided by NLLB-200 (Meta) and Bergamot (Mozilla).
+- Cross-platform translation is provided by Bergamot (Mozilla).
 - Language packages are downloaded only after the user confirms the download in Preferences.
 - Translation inference runs entirely offline.
 

@@ -3,7 +3,7 @@
  * 
  * Implements a native Mailspring PreferencesUIStore tab for:
  * - Default target language (System locale or custom BCP-47)
- * - Preferred Provider selection (Auto, Apple, Windows AI, NLLB, Bergamot)
+ * - Preferred Provider selection (Auto, Apple, Windows AI, Bergamot)
  * - Automatic Fallback switch
  * - Display Mode (Inline, Split/Side-by-side)
  * - Exclusions (Signatures, Quoted replies, Code blocks)
@@ -32,7 +32,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
   // Offline model management state
   const [models, setModels] = useState<ModelPackage[]>([]);
-  const [modelProviderFilter, setModelProviderFilter] = useState<'nllb' | 'bergamot'>('nllb');
+  const [modelProviderFilter, setModelProviderFilter] = useState<'bergamot'>('bergamot');
 
   const [installingModel, setInstallingModel] = useState<string | null>(null);
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null);
@@ -74,68 +74,48 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   };
 
   const refreshInstalledModels = async () => {
-    const provider = modelProviderFilter;
+    const [installedResult, availableResult] = await Promise.allSettled([
+      manager.getInstalledBergamotModels(),
+      manager.getInstallableBergamotModels(),
+    ]);
 
-    if (provider === 'nllb') {
-      // NLLB is a single multilingual model, so listInstallableModels() already
-      // sets isInstalled correctly by checking the required files on disk.
-      // No need to call getInstalledNllbModels() (which returns all 200x199
-      // language pairs regardless of whether the model files actually exist).
-      const availableResult = await manager.getInstallableNllbModels().catch((error) => {
-        throw error;
-      });
-
-      setModels(availableResult);
-      setModelError(null);
-      return;
+    if (installedResult.status === 'rejected' && availableResult.status === 'rejected') {
+      throw installedResult.reason;
     }
 
-    if (provider === 'bergamot') {
-      const [installedResult, availableResult] = await Promise.allSettled([
-        manager.getInstalledBergamotModels(),
-        manager.getInstallableBergamotModels(),
-      ]);
+    const installedPairs: LanguagePair[] = installedResult.status === 'fulfilled' ? installedResult.value : [];
+    const availableModels: ModelPackage[] = availableResult.status === 'fulfilled' ? availableResult.value : [];
+    const installed = new Set(
+      installedPairs.map((pair: LanguagePair) => `${pair.source}->${pair.target}`)
+    );
+    const availableKeys = new Set(availableModels.map((model) => `${model.fromCode}->${model.toCode}`));
+    const installedOnlyModels: ModelPackage[] = installedPairs
+      .filter((pair) => !availableKeys.has(`${pair.source}->${pair.target}`))
+      .map((pair) => ({
+        fromCode: pair.source,
+        fromName: pair.sourceName || getLanguageDisplayName(pair.source),
+        toCode: pair.target,
+        toName: pair.targetName || getLanguageDisplayName(pair.target),
+        packageVersion: '',
+        sizeMB: pair.modelSizeMB || 0,
+        isInstalled: true,
+        provider: 'bergamot',
+      }));
 
-      if (installedResult.status === 'rejected' && availableResult.status === 'rejected') {
-        throw installedResult.reason;
-      }
-
-      const installedPairs: LanguagePair[] = installedResult.status === 'fulfilled' ? installedResult.value : [];
-      const availableModels: ModelPackage[] = availableResult.status === 'fulfilled' ? availableResult.value : [];
-      const installed = new Set(
-        installedPairs.map((pair: LanguagePair) => `${pair.source}->${pair.target}`)
-      );
-      const availableKeys = new Set(availableModels.map((model) => `${model.fromCode}->${model.toCode}`));
-      const installedOnlyModels: ModelPackage[] = installedPairs
-        .filter((pair) => !availableKeys.has(`${pair.source}->${pair.target}`))
-        .map((pair) => ({
-          fromCode: pair.source,
-          fromName: pair.sourceName || getLanguageDisplayName(pair.source),
-          toCode: pair.target,
-          toName: pair.targetName || getLanguageDisplayName(pair.target),
-          packageVersion: '',
-          sizeMB: pair.modelSizeMB || 0,
-          isInstalled: true,
-          provider: 'bergamot',
-        }));
-
-      setModels([
-        ...availableModels.map((model) => ({
-          ...model,
-          isInstalled: installed.has(`${model.fromCode}->${model.toCode}`),
-        })),
-        ...installedOnlyModels,
-      ]);
-      setModelError(
-        availableResult.status === 'rejected'
-          ? `Could not load the Bergamot model catalog: ${String(availableResult.reason)}`
-          : installedResult.status === 'rejected'
-            ? `Could not read installed Bergamot models: ${String(installedResult.reason)}`
-            : null
-      );
-      return;
-    }
-
+    setModels([
+      ...availableModels.map((model) => ({
+        ...model,
+        isInstalled: installed.has(`${model.fromCode}->${model.toCode}`),
+      })),
+      ...installedOnlyModels,
+    ]);
+    setModelError(
+      availableResult.status === 'rejected'
+        ? `Could not load the Bergamot model catalog: ${String(availableResult.reason)}`
+        : installedResult.status === 'rejected'
+          ? `Could not read installed Bergamot models: ${String(installedResult.reason)}`
+          : null
+    );
   };
 
   useEffect(() => {
@@ -163,23 +143,13 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     setInstallProgress({ percent: 0, message: 'Starting model installation...' });
     setModelError(null);
     try {
-      let installed: boolean;
-      if (pkg.provider === 'nllb') {
-        installed = await manager.installNllbModel(
-          (percent: number, message: string) => setInstallProgress({ percent, message })
-        );
-        if (!installed) {
-          throw new Error('NLLB did not install the model.');
-        }
-      } else if (pkg.provider === 'bergamot') {
-        installed = await manager.installBergamotModel(
-          pkg.fromCode,
-          pkg.toCode,
-          (percent: number, message: string) => setInstallProgress({ percent, message })
-        );
-        if (!installed) {
-          throw new Error(`Bergamot did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
-        }
+      const installed = await manager.installBergamotModel(
+        pkg.fromCode,
+        pkg.toCode,
+        (percent: number, message: string) => setInstallProgress({ percent, message })
+      );
+      if (!installed) {
+        throw new Error(`Bergamot did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
       }
       await refreshInstalledModels();
     } catch (error) {
@@ -193,17 +163,9 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   const executeRemove = async (pkg: ModelPackage) => {
     setModelError(null);
     try {
-      let removed: boolean;
-      if (pkg.provider === 'nllb') {
-        removed = await manager.removeNllbModel();
-        if (!removed) {
-          throw new Error('NLLB did not remove the model.');
-        }
-      } else if (pkg.provider === 'bergamot') {
-        removed = await manager.removeBergamotModel(pkg.fromCode, pkg.toCode);
-        if (!removed) {
-          throw new Error(`Bergamot did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
-        }
+      const removed = await manager.removeBergamotModel(pkg.fromCode, pkg.toCode);
+      if (!removed) {
+        throw new Error(`Bergamot did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
       }
       await refreshInstalledModels();
     } catch (error) {
@@ -241,7 +203,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           onClick={() => setActiveSubTab('models')}
           className={activeSubTab === 'models' ? 'active' : ''}
         >
-          Offline Models ({modelProviderFilter === 'nllb' ? 'NLLB-200' : 'Bergamot'})
+          Offline Models (Bergamot)
         </button>
         <button
           onClick={() => setActiveSubTab('diagnostics')}
@@ -289,9 +251,8 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </p>
               <div className="offline-translator-provider-grid">
                 {[
-                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → NLLB → Bergamot; Windows: Windows AI → NLLB → Bergamot' },
+                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Bergamot; Windows: Windows AI → Bergamot' },
                   { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
-                  { id: 'nllb', label: 'NLLB-200 (CTranslate2 int8)', desc: 'Meta NLLB-200: 200 languages, ~600 MB int8 model, auto-unloads after 3 min' },
                   { id: 'bergamot', label: 'Bergamot WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
                   { id: 'windows-ai', label: 'Windows AI Native', desc: 'Probed only on Windows 11 Copilot+ PCs' },
                 ].map((p) => (
@@ -430,14 +391,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           <div className="offline-translator-card offline-translator-models-header">
             <div>
               <h4 className="offline-translator-card-title">
-                {modelProviderFilter === 'nllb'
-                  ? 'NLLB-200 Neural Translation Model'
-                  : 'Bergamot WASM Translation Models'}
+                Bergamot WASM Translation Models
               </h4>
               <p className="offline-translator-card-desc">
-                {modelProviderFilter === 'nllb'
-                  ? 'NLLB-200 from Meta AI supports 200 languages with a single ~600 MB int8 model. Loads on-demand and auto-unloads after 3 minutes of inactivity. License: CC-BY-NC-4.0 (non-commercial).'
-                  : 'Bergamot from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.'}
+                Bergamot from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.
               </p>
             </div>
             <div className="offline-translator-models-disk">
@@ -448,30 +405,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
             </div>
           </div>
 
-          {/* Provider Filter Toggle */}
-          <div className="offline-translator-card offline-translator-provider-filter">
-            <div className="offline-translator-provider-filter-label">Model Provider</div>
-            <div className="offline-translator-provider-filter-buttons">
-              <button
-                onClick={() => setModelProviderFilter('nllb')}
-                className={modelProviderFilter === 'nllb' ? 'active' : ''}
-              >
-                NLLB-200 (Meta)
-              </button>
-              <button
-                onClick={() => setModelProviderFilter('bergamot')}
-                className={modelProviderFilter === 'bergamot' ? 'active' : ''}
-              >
-                Bergamot (Mozilla)
-              </button>
-            </div>
-          </div>
 
           {modelError && (
             <div className="offline-translator-error" role="alert">
-              <strong>
-                {modelProviderFilter === 'bergamot' ? 'Bergamot' : 'NLLB'} model management issue.
-              </strong>{' '}{modelError}
+              <strong>Bergamot</strong> model management issue. {modelError}
             </div>
           )}
 
@@ -501,13 +438,13 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               <tbody>
                 {modelsLoading && (
                   <tr><td colSpan={5} className="offline-translator-table-empty">
-                    Loading {modelProviderFilter === 'bergamot' ? 'Bergamot' : 'NLLB'} models...
+                    Loading Bergamot models...
                   </td></tr>
                 )}
                 {!modelsLoading && filteredModels.length === 0 && (
                   <tr><td colSpan={5} className="offline-translator-table-empty">
                     {models.length === 0
-                      ? `No ${modelProviderFilter === 'bergamot' ? 'Bergamot' : 'NLLB'} models are available. Check your network connection.`
+                      ? 'No Bergamot models are available. Check your network connection.'
                       : 'No models match your search criteria.'}
                   </td></tr>
                 )}

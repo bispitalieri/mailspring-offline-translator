@@ -21,8 +21,7 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { ProcessManager } from '../utils/process-manager';
-import { normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager, normalizeLanguageTag} from '../utils';
 
 /** Language detection via languagedetect. */
 interface LanguageDetector {
@@ -157,7 +156,7 @@ export class BergamotModelDownloader {
    * `data/models/bergamot/en-it/`.
    */
   pairDir(pair: string): string {
-    const p = this.nodeRequire<typeof import('path')>('path');
+    const p = this.nodeRequire<typeof import('node:path')>('path');
     return p.join(this.modelsDir, 'bergamot', pair);
   }
 
@@ -204,9 +203,9 @@ export class BergamotModelDownloader {
     const metadata = await this.fetchMetadata(pair);
     const file = metadata.files[fileKey];
     const url = `${metadata.baseUrl}/${file.path}`;
-    const p = this.nodeRequire<typeof import('path')>('path');
-    const fs = this.nodeRequire<typeof import('fs')>('fs');
-    const fsPromises = this.nodeRequire<typeof import('fs/promises')>('fs/promises');
+    const p = this.nodeRequire<typeof import('node:path')>('path');
+    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
+    const fsPromises = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
 
     // Determine local file name
     const baseName = p.basename(file.path, '.gz');
@@ -302,8 +301,8 @@ export class BergamotModelDownloader {
   async isModelCached(pair: string): Promise<boolean> {
     try {
       const metadata = await this.fetchMetadata(pair);
-      const p = this.nodeRequire<typeof import('path')>('path');
-      const fs = this.nodeRequire<typeof import('fs')>('fs');
+      const p = this.nodeRequire<typeof import('node:path')>('path');
+      const fs = this.nodeRequire<typeof import('node:fs')>('fs');
 
       const files = [metadata.files.model, metadata.files.vocab, metadata.files.lexicalShortlist];
       for (const file of files) {
@@ -323,9 +322,9 @@ export class BergamotModelDownloader {
    * Removes cached model files for a language pair.
    */
   async removeModel(pair: string): Promise<void> {
-    const fs = this.nodeRequire<typeof import('fs/promises')>('fs/promises');
+    const fs = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
     const dir = this.pairDir(pair);
-    if (fs && this.nodeRequire<typeof import('fs')>('fs').existsSync(dir)) {
+    if (fs && this.nodeRequire<typeof import('node:fs')>('fs').existsSync(dir)) {
       await fs.rm(dir, { recursive: true, force: true });
     }
   }
@@ -334,9 +333,9 @@ export class BergamotModelDownloader {
    * Decompresses a .gz file using Node's zlib.
    */
   private async decompress(input: string, output: string): Promise<void> {
-    const zlib = this.nodeRequire<typeof import('zlib')>('zlib');
-    const fs = this.nodeRequire<typeof import('fs')>('fs');
-    const fsPromises = this.nodeRequire<typeof import('fs/promises')>('fs/promises');
+    const zlib = this.nodeRequire<typeof import('node:zlib')>('zlib');
+    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
+    const fsPromises = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
 
     const data = await fsPromises.readFile(input);
     const decompressed = zlib.gunzipSync(data);
@@ -373,7 +372,7 @@ export class BergamotModelDownloader {
 // ---------------------------------------------------------------------------
 
 export class LocalTranslatorBacking {
-  private downloader: BergamotModelDownloader;
+  private readonly downloader: BergamotModelDownloader;
   private backing: any; // TranslatorBacking instance (used for worker management)
   private initialized = false;
   private bergamotModule: BergamotModule | null = null;
@@ -433,8 +432,8 @@ export class LocalTranslatorBacking {
    * Builds a Bergamot-compatible registry from locally cached models.
    */
   private async buildLocalRegistry(): Promise<BergamotModelEntry[]> {
-    const fs = this.nodeRequire<typeof import('fs')>('fs');
-    const p = this.nodeRequire<typeof import('path')>('path');
+    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
+    const p = this.nodeRequire<typeof import('node:path')>('path');
 
     const bergamotDir = p.join(this.downloader['modelsDir'], 'bergamot');
     if (!fs.existsSync(bergamotDir)) return [];
@@ -476,8 +475,8 @@ export class LocalTranslatorBacking {
     pair: { from: string; to: string },
     _options?: { signal?: AbortSignal }
   ): Promise<BergamotModelBuffers> {
-    const fs = this.nodeRequire<typeof import('fs/promises')>('fs/promises');
-    const p = this.nodeRequire<typeof import('path')>('path');
+    const fs = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
+    const p = this.nodeRequire<typeof import('node:path')>('path');
 
     const pairKey = `${pair.from}-${pair.to}`;
     const pairPath = this.downloader.pairDir(pairKey);
@@ -883,8 +882,8 @@ export class BergamotTranslationProvider implements ITranslationProvider {
    * Gets the list of installed language pairs.
    */
   private async getInstalledPairs(): Promise<string[]> {
-    const fs = this.nodeRequire<typeof import('fs')>('fs');
-    const p = this.nodeRequire<typeof import('path')>('path');
+    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
+    const p = this.nodeRequire<typeof import('node:path')>('path');
 
     const bergamotDir = p.join(this.downloader['modelsDir'], 'bergamot');
     if (!fs.existsSync(bergamotDir)) return [];

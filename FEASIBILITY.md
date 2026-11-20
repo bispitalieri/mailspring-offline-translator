@@ -47,17 +47,16 @@ Mailspring is an Electron application. Because Electron cannot directly link aga
 
 ---
 
-## 3. Cross-Platform: NLLB-200 and Bergamot
+## 3. Cross-Platform: Bergamot
 
 ### Technical Architecture
-- **NLLB-200**: Meta NLLB-200 model running via CTranslate2, supporting 200 languages with a single multilingual model.
 - **Bergamot**: Mozilla Firefox Translations WebAssembly engine with per-pair models.
-- **Platform Support**: Cross-platform support via WebAssembly (Bergamot) and native bindings (NLLB-200).
+- **Platform Support**: Cross-platform support via WebAssembly.
 - **Network Requirement**: Strictly offline during inference. Package downloads require explicit user approval in the UI.
 
 ### Feasibility Verdict
 - **Feasibility**: **HIGH** on supported platforms.
-- Serves as the primary cross-platform engines alongside native providers.
+- Serves as the primary cross-platform engine alongside native providers.
 
 ---
 
@@ -65,9 +64,9 @@ Mailspring is an Electron application. Because Electron cannot directly link aga
 
 | OS / Platform | Native Engine | Cross-Platform Fallback | Offline Guarantee | User Consent Required for Models |
 |---|---|---|---|---|
-| **macOS 15+ (Sequoia)** | Apple Translation (`TranslationSession`) | NLLB-200, Bergamot | 100% On-Device | Yes |
-| **macOS 14- (Sonoma & earlier)** | Unavailable (OS limitation) | NLLB-200, Bergamot | 100% On-Device | Yes |
-| **Windows 11 (Copilot+ NPU)** | Evaluated (Phi Silica SLM unfeasible for MT) | NLLB-200, Bergamot | 100% On-Device | Yes |
-| **Windows 10 / 11 (Standard PC)** | Unavailable (No offline API) | NLLB-200, Bergamot | 100% On-Device | Yes |
-| **Linux x64** | N/A | NLLB-200, Bergamot | 100% On-Device | Yes |
+| **macOS 15+ (Sequoia)** | Apple Translation (`TranslationSession`) | Bergamot | 100% On-Device | Yes |
+| **macOS 14- (Sonoma & earlier)** | Unavailable (OS limitation) | Bergamot | 100% On-Device | Yes |
+| **Windows 11 (Copilot+ NPU)** | Evaluated (Phi Silica SLM unfeasible for MT) | Bergamot | 100% On-Device | Yes |
+| **Windows 10 / 11 (Standard PC)** | Unavailable (No offline API) | Bergamot | 100% On-Device | Yes |
+| **Linux x64** | N/A | Bergamot | 100% On-Device | Yes |
 | **Linux ARM64** | N/A | Bergamot (WASM) | 100% On-Device | Yes |
