@@ -33,15 +33,11 @@
   },
   "dependencies": {
     "@browsermt/bergamot-translator": "^0.4.9",
-    "@huggingface/transformers": "^4.3.2",
-    "adm-zip": "^0.6.1",
-    "ctranslate2": "^1.0.0",
     "languagedetect": "^2.0.0"
   },
   "devDependencies": {
     "@electron/remote": "^2.1.4",
-    "@types/adm-zip": "^0.6.0",
-    "@types/node": "^22.14.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "typescript": "^7.0.2"
   },

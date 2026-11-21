@@ -32,10 +32,6 @@ if [[ ! -f "${DIST_DIR}/${PACKAGE_NAME}/lib/core/main.js" ]]; then
   echo "Error: lib/core/main.js is missing from staging package!" >&2
   exit 1
 fi
-if [[ ! -f "${DIST_DIR}/${PACKAGE_NAME}/node_modules/ctranslate2/index.js" ]]; then
-  echo "Error: the native CTranslate2 runtime is missing from the staged plugin!" >&2
-  exit 1
-fi
 
 # 5. Create release archives
 cd "${DIST_DIR}"

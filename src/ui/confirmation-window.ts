@@ -263,7 +263,7 @@ class ModelDownloadConfirmationWindow {
 
   <div class="info-row">
     <span class="info-label">Engine:</span>
-    <span class="info-value">CTranslate2</span>
+    <span class="info-value">${model.provider}</span>
   </div>
 
   <div class="info-row">

@@ -10,14 +10,11 @@
  */
 
 import { TranslationManager } from './translation-manager';
-import { MessageTranslatorHeader } from '../ui/message-translator-extension';
-import { ComposerTranslatorButton } from '../ui/composer-translator-extension';
-import { OfflineTranslatorSettingsTab } from '../ui/settings-tab';
-import { ProcessManager } from '../utils/process-manager';
-import {
+import { MessageTranslatorHeader, ComposerTranslatorButton, OfflineTranslatorSettingsTab,
   clearMessageTranslationPresentations,
   OfflineTranslatorMessageViewExtension,
-} from '../ui/message-body-extension';
+} from '../ui';
+import {ProcessManager} from '../utils';
 
 let managerInstance: TranslationManager | null = null;
 let preferencesTabId: string | null = null;

@@ -2,10 +2,10 @@
  * Bergamot WASM Translation Provider
  *
  * Integrates the @browsermt/bergamot-translator WebAssembly engine with
- * Mozilla's Firefox Translations models (hosted on Google Cloud Storage).
+ * Mozilla's Firefox Translations models (hosted on GitHub).
  *
  * Features:
- *  - On-demand model download from Mozilla's GCS bucket
+ *  - On-demand model download from Mozilla's firefox-translations-models repository
  *  - Local model caching in the plugin's data/models/bergamot directory
  *  - HTML-aware translation via the native `html: true` option
  *  - Automatic memory release after inactivity timeout (keeps RAM < 300 MB)
@@ -101,7 +101,7 @@ interface BergamotModule {
 }
 
 // ---------------------------------------------------------------------------
-// Mozilla Firefox Translations model metadata (from GCS).
+// Mozilla Firefox Translations model metadata (from GitHub).
 // ---------------------------------------------------------------------------
 
 interface MozillaModelMetadata {
@@ -126,11 +126,14 @@ interface MozillaModelMetadata {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** GCS bucket base URL for Mozilla translation models. */
-const GCS_BASE = 'https://storage.googleapis.com/moz-fx-translations-data--303e-prod-translations-data';
+/** GitHub raw base URL for Mozilla Firefox Translations models. */
+const GITHUB_BASE = 'https://raw.githubusercontent.com/mozilla/firefox-translations-models/main';
 
-/** HuggingFace mirror index – lists all available language pairs. */
-const HF_INDEX_URL = 'https://huggingface.co/midudev/firefox-translations/raw/main/index.json';
+/** Model index – lists all available language pairs via by-hash.json. */
+const MODEL_INDEX_URL = `${GITHUB_BASE}/models/by-hash.json`;
+
+/** Preferred model architecture (best quality with reasonable size). */
+const PREFERRED_ARCHITECTURE = 'base-memory';
 
 /** Timeout (ms) of inactivity before the WASM worker is destroyed to free RAM. */
 const DEFAULT_UNLOAD_TIMEOUT_MS = 120_000; // 2 minutes
@@ -141,7 +144,7 @@ const MAX_WORKERS = 1;
 // ---------------------------------------------------------------------------
 // BergamotModelDownloader
 //
-// Handles downloading and caching of Mozilla model files from GCS.
+// Handles downloading and caching of Mozilla model files from GitHub.
 // ---------------------------------------------------------------------------
 
 export class BergamotModelDownloader {
@@ -161,38 +164,77 @@ export class BergamotModelDownloader {
   }
 
   /**
-   * Fetches the list of available language pairs from the HuggingFace mirror.
+   * Fetches the list of available language pairs from Mozilla's GitHub repository.
    */
   async listPairs(): Promise<string[]> {
-    const resp = await fetch(HF_INDEX_URL);
+    const resp = await fetch(MODEL_INDEX_URL);
     if (!resp.ok) {
       throw new Error(`Failed to fetch model index (HTTP ${resp.status}).`);
     }
-    const data = (await resp.json()) as { pairs: string[] };
-    return data.pairs ?? [];
+    const byHash = (await resp.json()) as Record<string, string>;
+    // Extract unique pairs from metadata paths like "models/base-memory/enit/metadata.json"
+    const pairs = new Set<string>();
+    for (const path of Object.values(byHash)) {
+      const match = path.match(/models\/([^/]+)\/([a-z]{2})([a-z]{2})\/metadata\.json$/);
+      if (match) {
+        // Convert compact form "enit" to "en-it" format
+        const pair = `${match[2]}-${match[3]}`;
+        pairs.add(pair);
+      }
+    }
+    return Array.from(pairs);
   }
 
   /**
-   * Fetches the model metadata JSON for a language pair from GCS.
-   * The metadata tells us the exact file paths for model, vocab, and shortlist.
+   * Fetches the model metadata JSON for a language pair from Mozilla's GitHub repository.
+   * The metadata tells us the architecture and file names for model, vocab, and shortlist.
    */
   async fetchMetadata(pair: string): Promise<MozillaModelMetadata> {
-    // pair is like "en-it"; metadata lives at:
-    // <GCS_BASE>/models/<pair>/.../model.json
-    // We try the HuggingFace mirror first (easier structure), then fall back.
-    const hfUrl = `https://huggingface.co/mukowaty/firefox-translations/raw/main/${pair}/model.json`;
-    const resp = await fetch(hfUrl);
-    if (!resp.ok) {
+    // pair is like "en-it"; convert to compact form "enit" for GitHub paths
+    const compactPair = pair.replace('-', '');
+    // Try preferred architecture first, then fall back to others
+    const architectures = [PREFERRED_ARCHITECTURE, 'base', 'tiny'];
+    let metadata: MozillaModelMetadata | null = null;
+    let usedArch = '';
+
+    for (const arch of architectures) {
+      const url = `${GITHUB_BASE}/models/${arch}/${compactPair}/metadata.json`;
+      const resp = await fetch(url);
+      if (resp.ok) {
+        metadata = (await resp.json()) as MozillaModelMetadata;
+        usedArch = arch;
+        break;
+      }
+    }
+
+    if (!metadata) {
       throw new Error(
-        `Failed to fetch model metadata for ${pair} (HTTP ${resp.status}). ` +
+        `Failed to fetch model metadata for ${pair}. ` +
           `The language pair may not be available.`
       );
     }
-    return resp.json() as Promise<MozillaModelMetadata>;
+
+    // Build the baseUrl and file paths from the GitHub structure
+    const baseUrl = `${GITHUB_BASE}/models/${usedArch}/${compactPair}`;
+    const pairKey = compactPair;
+
+    return {
+      architecture: usedArch,
+      sourceLanguage: metadata.sourceLanguage ?? pair.split('-')[0],
+      targetLanguage: metadata.targetLanguage ?? pair.split('-')[1],
+      model_id: pairKey,
+      baseUrl,
+      files: {
+        model: { path: `model.${pairKey}.intgemm.alphas.bin.gz` },
+        vocab: { path: `vocab.${pairKey}.spm.gz` },
+        lexicalShortlist: { path: `lex.50.50.${pairKey}.s2t.bin.gz` },
+      },
+      modelStatistics: metadata.modelStatistics,
+    };
   }
 
   /**
-   * Downloads a single file from GCS and saves it locally (decompressed).
+   * Downloads a single file from Mozilla's GitHub repository and saves it locally (decompressed).
    * Returns the path to the decompressed file.
    */
   async downloadFile(
@@ -367,8 +409,8 @@ export class BergamotModelDownloader {
 // LocalTranslatorBacking
 //
 // Extends TranslatorBacking to load models from the local filesystem instead
-// of fetching them from the network. The registry is built from the HuggingFace
-// index + GCS metadata.
+// of fetching them from the network. The registry is built from the Mozilla
+// GitHub repository metadata.
 // ---------------------------------------------------------------------------
 
 export class LocalTranslatorBacking {
