@@ -34,6 +34,7 @@ export const ComposerTranslateModal: React.FC<{
   onConfirmReplace: (translatedBody: string) => void;
   manager: TranslationManager;
 }> = ({ isOpen, onClose, draftBody, onConfirmReplace, manager }) => {
+  const [sourceLang, setSourceLang] = useState<string>('auto');
   const [targetLang, setTargetLang] = useState<string>(() => manager.getEffectiveTargetLanguage());
   const [translatedText, setTranslatedText] = useState<string>('');
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
@@ -53,7 +54,7 @@ export const ComposerTranslateModal: React.FC<{
       const res = await manager.translate({
         id: `draft_${Date.now()}`,
         text: draftBody || '',
-        sourceLang: 'auto',
+        sourceLang: sourceLang,
         targetLang,
         isHtml: true,
         providerId: selectedProvider === 'auto' ? undefined : selectedProvider,
@@ -102,7 +103,19 @@ export const ComposerTranslateModal: React.FC<{
         {/* Toolbar */}
         <div className="offline-translator-modal-toolbar">
           <div className="offline-translator-toolbar-left">
-            <span className="offline-translator-toolbar-label">Target Language:</span>
+            <span className="offline-translator-toolbar-label">From:</span>
+            <select
+              value={sourceLang}
+              onChange={(e) => setSourceLang(e.target.value)}
+            >
+              <option value="auto">🔍 Detect Language</option>
+              {languages.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name} ({l.code})
+                </option>
+              ))}
+            </select>
+            <span className="offline-translator-toolbar-label">To:</span>
             <select
               value={targetLang}
               onChange={(e) => setTargetLang(e.target.value)}
@@ -120,9 +133,12 @@ export const ComposerTranslateModal: React.FC<{
             >
               <option value="auto">Automatic</option>
             </select>
-            {detectedLang && (
+            {hasTranslated && (
               <span className="offline-translator-detected-lang">
-                Source detected: <strong>{getLanguageDisplayName(detectedLang)}</strong>
+                {sourceLang === 'auto'
+                  ? `Source detected: <strong>${getLanguageDisplayName(detectedLang || 'unknown')}</strong>`
+                  : `Source: <strong>${getLanguageDisplayName(sourceLang)}</strong>`
+                }
               </span>
             )}
           </div>

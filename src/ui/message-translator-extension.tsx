@@ -43,6 +43,7 @@ export const MessageTranslatorHeader: React.FC<{
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
   const [viewMode, setViewMode] = useState<'inline' | 'split' | 'original'>('original');
   const [targetLang, setTargetLang] = useState<string>(() => manager.getEffectiveTargetLanguage());
+  const [sourceLang, setSourceLang] = useState<string>('auto');
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,7 @@ export const MessageTranslatorHeader: React.FC<{
       const res = await manager.translate({
         id: `msg_${message.id}_${Date.now()}`,
         text: textToTranslate,
-        sourceLang: 'auto',
+        sourceLang: sourceLang,
         targetLang: tgt,
         isHtml: !source.isPlaintext,
         providerId: overrideProvider,
@@ -149,13 +150,38 @@ export const MessageTranslatorHeader: React.FC<{
           ) : (
             <div className="offline-translator-status-badges">
               <span className="offline-translator-lang-badge">
-                {detectedLang ? getLanguageDisplayName(detectedLang) : 'Detected'} → {getLanguageDisplayName(targetLang)}
+                {sourceLang === 'auto'
+                  ? (detectedLang ? getLanguageDisplayName(detectedLang) : 'Detected')
+                  : getLanguageDisplayName(sourceLang)
+                } → {getLanguageDisplayName(targetLang)}
               </span>
               <span className="offline-translator-provider-badge">
                 {translationResult.providerName}
               </span>
             </div>
           )}
+
+          {/* Source language selector */}
+          <div className="offline-translator-lang-selector">
+            <span className="offline-translator-lang-label">From:</span>
+            <select
+              value={sourceLang}
+              onChange={(e) => {
+                const nextSource = e.target.value;
+                setSourceLang(nextSource);
+                if (translationResult) {
+                  handleTranslate(undefined, undefined);
+                }
+              }}
+            >
+              <option value="auto">🔍 Detect Language</option>
+              {languages.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name} ({l.code})
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Target language selector */}
           <div className="offline-translator-lang-selector">
