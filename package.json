@@ -34,7 +34,7 @@
   "dependencies": {
     "@browsermt/bergamot-translator": "^0.4.9",
     "languagedetect": "^2.0.0",
-    "ws": "^8.18.0"
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@electron/remote": "^2.1.4",
