@@ -26,17 +26,14 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { TranslationCache } from '../utils/cache';
-import { HtmlTranslator } from '../utils/html-translator';
-import { getSystemLocale, normalizeLanguageTag } from '../utils/bcp47';
-import { ProcessManager } from '../utils/process-manager';
+import { TranslationCache, HtmlTranslator, getSystemLocale, normalizeLanguageTag, ProcessManager} from '../utils';
 
 export class TranslationManager {
-  private providers: Map<ProviderId, ITranslationProvider> = new Map();
-  private cache: TranslationCache;
+  private readonly providers: Map<ProviderId, ITranslationProvider> = new Map();
+  private readonly cache: TranslationCache;
   private settings: PluginSettings;
-  private inFlightRequests: Map<string, Promise<TranslationResult>> = new Map();
-  private platform: SupportedPlatform;
+  private readonly inFlightRequests: Map<string, Promise<TranslationResult>> = new Map();
+  private readonly platform: SupportedPlatform;
 
   constructor(
     customSettings?: Partial<PluginSettings>,
@@ -105,9 +102,6 @@ export class TranslationManager {
     );
     return this.getProvidersInfo();
   }
-
-
-
 
   // -----------------------------------------------------------------------
   // Bergamot model management
@@ -332,6 +326,25 @@ export class TranslationManager {
     targetLang: string,
     cacheKey: string
   ): Promise<TranslationResult> {
+    // Prepara il testo: se HTML, esclude firme, citazioni e blocchi di codice
+    const text = request.isHtml
+      ? HtmlTranslator.preprocessHtml(request.text, {
+          excludeSignatures: this.settings.excludeSignatures,
+          excludeQuotedReplies: this.settings.excludeQuotedReplies,
+          excludeCodeBlocks: this.settings.excludeCodeBlocks,
+        })
+      : request.text;
+
+    // Costruisce la richiesta di traduzione
+    const translateRequest: TranslationRequest = {
+      ...request,
+      text,
+      sourceLang,
+      targetLang,
+      isHtml: request.isHtml,
+    };
+
+    // Risolve il provider primario
     const provider = await this.resolveProvider(sourceLang, targetLang);
     if (!provider) {
       throw new Error(
@@ -339,87 +352,41 @@ export class TranslationManager {
       );
     }
 
-    const providerInfo = provider.getInfo();
-
-    // Check if HTML processing is needed
-    if (request.isHtml) {
-      const translatedHtml = await HtmlTranslator.translateHtml(
-        request.text,
-        async (segments) => {
-          const batchResults: string[] = [];
-          for (const seg of segments) {
-            const segResult = await provider.translate({
-              id: `${request.id}_seg`,
-              text: seg,
-              sourceLang,
-              targetLang,
-              timeoutMs: request.timeoutMs,
-            });
-            batchResults.push(segResult.translatedText);
-          }
-          return batchResults;
-        },
-        {
-          excludeSignatures: this.settings.excludeSignatures,
-          excludeQuotedReplies: this.settings.excludeQuotedReplies,
-          excludeCodeBlocks: this.settings.excludeCodeBlocks,
-        }
-      );
-
-      const result: TranslationResult = {
-        id: request.id,
-        translatedText: translatedHtml,
-        detectedSourceLang: sourceLang,
-        targetLang,
-        providerUsed: providerInfo.id,
-        providerName: providerInfo.name,
-        fromCache: false,
-        durationMs: 0,
-      };
-
-      if (this.settings.cacheEnabled) {
-        this.cache.set(cacheKey, result.translatedText, sourceLang, targetLang, providerInfo.id);
-      }
-
-      return result;
-    }
-
-    // Plain text translation
+    // Prova il provider primario
     try {
-      const result = await provider.translate({
-        ...request,
-        sourceLang,
-        targetLang,
-      });
-
-      if (this.settings.cacheEnabled) {
-        this.cache.set(cacheKey, result.translatedText, sourceLang, targetLang, result.providerUsed);
-      }
-
+      const result = await provider.translate(translateRequest);
+      this.cacheResult(cacheKey, result, sourceLang, targetLang);
       return result;
     } catch (err: any) {
+      // Fallback: prova gli altri provider in ordine di priorità
       if (this.settings.autoFallback) {
+        const providerInfo = provider.getInfo();
         const fallbacks = this.getPriorityList().filter((id) => id !== providerInfo.id);
         for (const fId of fallbacks) {
           const fallbackProvider = this.providers.get(fId);
           if (fallbackProvider && (await fallbackProvider.isAvailable())) {
             try {
-              const fbResult = await fallbackProvider.translate({
-                ...request,
-                sourceLang,
-                targetLang,
-              });
-              if (this.settings.cacheEnabled) {
-                this.cache.set(cacheKey, fbResult.translatedText, sourceLang, targetLang, fbResult.providerUsed);
-              }
+              const fbResult = await fallbackProvider.translate(translateRequest);
+              this.cacheResult(cacheKey, fbResult, sourceLang, targetLang);
               return fbResult;
             } catch {
-              // Try next fallback
+              // Prova il prossimo fallback
             }
           }
         }
       }
       throw err;
+    }
+  }
+
+  private cacheResult(
+    cacheKey: string,
+    result: TranslationResult,
+    sourceLang: string,
+    targetLang: string
+  ): void {
+    if (this.settings.cacheEnabled) {
+      this.cache.set(cacheKey, result.translatedText, sourceLang, targetLang, result.providerUsed);
     }
   }
 

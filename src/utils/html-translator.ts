@@ -21,6 +21,76 @@ export class HtmlTranslator {
   private static readonly MASK_PREFIX = '\u200B\uFFFD';
   private static readonly MASK_SUFFIX = '\uFFFD\u200B';
 
+  /**
+   * Pre-elabora l'HTML per escludere firme, citazioni, blocchi di codice e script/style
+   * senza segmentare i nodi testo. Il risultato è un HTML pronto da passare a Bergamot
+   * con `html: true` che preserverà la struttura nativamente.
+   */
+  public static preprocessHtml(
+    html: string,
+    options: HtmlSegmentationOptions = {
+      excludeSignatures: true,
+      excludeQuotedReplies: true,
+      excludeCodeBlocks: true,
+    }
+  ): string {
+    if (!html || typeof html !== 'string') {
+      return html;
+    }
+
+    let processed = html;
+    let tokenIndex = 0;
+
+    // Preserva i blocchi script e style sostituendoli con token
+    const preservedBlocks: Map<string, string> = new Map();
+
+    processed = processed.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, (match) => {
+      const token = `<!--__OFFLINE_RAW_${tokenIndex++}__-->`;
+      preservedBlocks.set(token, match);
+      return token;
+    });
+
+    // Esclude blocchi di codice
+    if (options.excludeCodeBlocks) {
+      processed = processed.replace(/<(pre|code|kbd|samp)[^>]*>[\s\S]*?<\/\1>/gi, (match) => {
+        const token = `<!--__OFFLINE_CODE_${tokenIndex++}__-->`;
+        preservedBlocks.set(token, match);
+        return token;
+      });
+    }
+
+    // Esclude citazioni e risposte
+    if (options.excludeQuotedReplies) {
+      processed = processed.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, (match) => {
+        const token = `<!--__OFFLINE_QUOTE_${tokenIndex++}__-->`;
+        preservedBlocks.set(token, match);
+        return token;
+      });
+
+      processed = processed.replace(/<div\s+[^>]*class=["'][^"']*(gmail_quote|mailspring-quote|yahoo_quoted)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, (match) => {
+        const token = `<!--__OFFLINE_QUOTE_${tokenIndex++}__-->`;
+        preservedBlocks.set(token, match);
+        return token;
+      });
+    }
+
+    // Esclude firme
+    if (options.excludeSignatures) {
+      processed = processed.replace(/<div\s+[^>]*class=["'][^"']*(gmail_signature|signature)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, (match) => {
+        const token = `<!--__OFFLINE_SIG_${tokenIndex++}__-->`;
+        preservedBlocks.set(token, match);
+        return token;
+      });
+    }
+
+    // Ripristina i blocchi preservati
+    for (const [token, original] of preservedBlocks.entries()) {
+      processed = processed.replace(token, original);
+    }
+
+    return processed;
+  }
+
   public static segment(
     html: string,
     options: HtmlSegmentationOptions = {
