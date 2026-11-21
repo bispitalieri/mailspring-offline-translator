@@ -36,6 +36,7 @@ export interface ExecutableResolution {
   arch: string;
   exists: boolean;
   canExecute: boolean;
+  isNodeScript?: boolean;
   error?: string;
 }
 
@@ -75,6 +76,49 @@ export class ProcessManager {
     }
 
     return modelsDir;
+  }
+
+  /**
+   * Resolves the Windows Edge Translator API Node.js helper.
+   */
+  public static resolveWindowsExecutable(customBaseDir?: string): ExecutableResolution {
+    const base = customBaseDir || this.pluginRootDir;
+    const platform = (typeof process !== 'undefined' && (process.platform as SupportedPlatform)) || 'win32';
+    const arch = typeof process !== 'undefined' ? process.arch : 'x64';
+
+    const helperName = 'edge-translator.js';
+
+    const p = getNativeNodeModule<any>('path');
+    const f = getNativeNodeModule<any>('fs');
+
+    const helperPath = p ? p.join(base, 'helpers', 'windows', helperName) : `${base}/helpers/windows/${helperName}`;
+
+    let resolved = helperPath;
+    let exists = false;
+    let canExecute = false;
+
+    if (f) {
+      exists = f.existsSync(helperPath);
+      canExecute = exists; // Node.js scripts are always executable
+    } else {
+      exists = platform === 'win32';
+      canExecute = platform === 'win32';
+    }
+
+    return {
+      path: resolved,
+      isBundled: exists,
+      platform,
+      arch,
+      exists,
+      canExecute,
+      isNodeScript: true,
+      error: platform !== 'win32'
+        ? 'Edge Translator API is only available on Windows 10/11 with Microsoft Edge (Chromium)'
+        : !exists
+        ? `Edge translator helper not found at ${resolved}`
+        : undefined,
+    };
   }
 
   /**
@@ -141,7 +185,8 @@ export class ProcessManager {
   public static spawnWorker(
     executablePath: string,
     args: string[] = [],
-    envOverrides: Record<string, string> = {}
+    envOverrides: Record<string, string> = {},
+    isNodeScript: boolean = false
   ): ChildProcessLike {
     const env = {
       ...(typeof process !== 'undefined' ? process.env : {}),
@@ -161,7 +206,11 @@ export class ProcessManager {
       };
     }
 
-    const proc = cp.spawn(executablePath, args, {
+    // For Node.js scripts, spawn with 'node' as the executable
+    const cmd = isNodeScript ? 'node' : executablePath;
+    const spawnArgs = isNodeScript ? [executablePath, ...args] : args;
+
+    const proc = cp.spawn(cmd, spawnArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env,
       windowsHide: true,

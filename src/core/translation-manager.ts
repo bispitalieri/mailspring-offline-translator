@@ -68,7 +68,7 @@ export class TranslationManager {
 
   private initDefaultProviders(): void {
     this.providers.set('apple', new AppleTranslationProvider());
-    this.providers.set('windows-ai', new WindowsAiProvider());
+    this.providers.set('edge-translator', new WindowsAiProvider());
     this.providers.set('bergamot', new BergamotTranslationProvider());
   }
 
@@ -151,7 +151,7 @@ export class TranslationManager {
       return ['apple', 'bergamot'];
     }
     if (this.platform === 'win32') {
-      return ['windows-ai', 'bergamot'];
+      return ['edge-translator', 'bergamot'];
     }
     return ['bergamot'];
   }
