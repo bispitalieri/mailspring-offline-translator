@@ -126,11 +126,11 @@ interface MozillaModelMetadata {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** GitHub raw base URL for Mozilla Firefox Translations models. */
-const GITHUB_BASE = 'https://raw.githubusercontent.com/mozilla/firefox-translations-models/main';
+/** Google Cloud Storage base URL for Mozilla Translations models. */
+const GCS_BASE = 'https://storage.googleapis.com/moz-fx-translations-data--303e-prod-translations-data';
 
-/** Model index – lists all available language pairs via by-hash.json. */
-const MODEL_INDEX_URL = `${GITHUB_BASE}/models/by-hash.json`;
+/** Model registry JSON – lists all available language pairs and their metadata. */
+const MODEL_REGISTRY_URL = `${GCS_BASE}/db/models.json`;
 
 /** Preferred model architecture (best quality with reasonable size). */
 const PREFERRED_ARCHITECTURE = 'base-memory';
@@ -164,98 +164,111 @@ export class BergamotModelDownloader {
   }
 
   /**
-   * Fetches the list of available language pairs from Mozilla's GitHub repository.
+   * Fetches the list of available language pairs from Mozilla's GCS model registry.
    */
   async listPairs(): Promise<string[]> {
-    const resp = await fetch(MODEL_INDEX_URL);
+    const resp = await fetch(MODEL_REGISTRY_URL);
     if (!resp.ok) {
-      throw new Error(`Failed to fetch model index (HTTP ${resp.status}).`);
+      throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
     }
-    const byHash = (await resp.json()) as Record<string, string>;
-    // Extract unique pairs from metadata paths like "models/base-memory/enit/metadata.json"
-    const pairs = new Set<string>();
-    for (const path of Object.values(byHash)) {
-      const match = path.match(/models\/([^/]+)\/([a-z]{2})([a-z]{2})\/metadata\.json$/);
-      if (match) {
-        // Convert compact form "enit" to "en-it" format
-        const pair = `${match[2]}-${match[3]}`;
-        pairs.add(pair);
-      }
-    }
-    return Array.from(pairs);
+    const registry = (await resp.json()) as { models: Record<string, unknown[]> };
+    // Keys in the models object are the language pairs (e.g., "en-it", "fr-en")
+    return Object.keys(registry.models ?? {});
   }
 
   /**
-   * Fetches the model metadata JSON for a language pair from Mozilla's GitHub repository.
-   * The metadata tells us the architecture and file names for model, vocab, and shortlist.
+   * Fetches the model metadata for a language pair from Mozilla's GCS model registry.
+   * Prefers models with releaseStatus "Release" and base-memory architecture.
    */
   async fetchMetadata(pair: string): Promise<MozillaModelMetadata> {
-    // pair is like "en-it"; convert to compact form "enit" for GitHub paths
-    const compactPair = pair.replace('-', '');
-    // Try preferred architecture first, then fall back to others
-    const architectures = [PREFERRED_ARCHITECTURE, 'base', 'tiny'];
-    let metadata: MozillaModelMetadata | null = null;
-    let usedArch = '';
-
-    for (const arch of architectures) {
-      const url = `${GITHUB_BASE}/models/${arch}/${compactPair}/metadata.json`;
-      const resp = await fetch(url);
-      if (resp.ok) {
-        metadata = (await resp.json()) as MozillaModelMetadata;
-        usedArch = arch;
-        break;
-      }
+    const resp = await fetch(MODEL_REGISTRY_URL);
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
     }
+    const registry = (await resp.json()) as {
+      baseUrl: string;
+      models: Record<string, Array<{
+        architecture: string;
+        releaseStatus?: string;
+        sourceLanguage: string;
+        targetLanguage: string;
+        files: {
+          model: { path: string; uncompressedSize?: number; uncompressedHash?: string };
+          vocab: { path: string };
+          lexicalShortlist: { path: string };
+        };
+        modelStatistics?: {
+          parameters: number;
+          encoderParameters: number;
+          decoderParameters: number;
+        };
+      }>>;
+    };
 
-    if (!metadata) {
+    const models = registry.models?.[pair];
+    if (!models || models.length === 0) {
       throw new Error(
-        `Failed to fetch model metadata for ${pair}. ` +
+        `No model found for language pair ${pair}. ` +
           `The language pair may not be available.`
       );
     }
 
-    // Build the baseUrl and file paths from the GitHub structure
-    const baseUrl = `${GITHUB_BASE}/models/${usedArch}/${compactPair}`;
-    const pairKey = compactPair;
+    // Prefer model with releaseStatus "Release" and preferred architecture
+    let selected = models.find(m => m.releaseStatus === 'Release' && m.architecture === PREFERRED_ARCHITECTURE)
+      ?? models.find(m => m.releaseStatus === 'Release')
+      ?? models.find(m => m.architecture === PREFERRED_ARCHITECTURE)
+      ?? models[0];
+
+    const baseUrl = registry.baseUrl;
+    const pairKey = pair.replace('-', '');
 
     return {
-      architecture: usedArch,
-      sourceLanguage: metadata.sourceLanguage ?? pair.split('-')[0],
-      targetLanguage: metadata.targetLanguage ?? pair.split('-')[1],
+      architecture: selected.architecture,
+      sourceLanguage: selected.sourceLanguage ?? pair.split('-')[0],
+      targetLanguage: selected.targetLanguage ?? pair.split('-')[1],
       model_id: pairKey,
       baseUrl,
       files: {
-        model: { path: `model.${pairKey}.intgemm.alphas.bin.gz` },
-        vocab: { path: `vocab.${pairKey}.spm.gz` },
-        lexicalShortlist: { path: `lex.50.50.${pairKey}.s2t.bin.gz` },
+        model: { path: selected.files.model.path, uncompressedSize: selected.files.model.uncompressedSize, uncompressedHash: selected.files.model.uncompressedHash },
+        vocab: { path: selected.files.vocab.path },
+        lexicalShortlist: { path: selected.files.lexicalShortlist.path },
       },
-      modelStatistics: metadata.modelStatistics,
+      modelStatistics: selected.modelStatistics,
     };
   }
 
   /**
-   * Downloads a single file from Mozilla's GitHub repository and saves it locally (decompressed).
+   * Downloads a single file from Mozilla's GCS model storage and saves it locally (decompressed).
    * Returns the path to the decompressed file.
    */
   async downloadFile(
     pair: string,
     fileKey: 'model' | 'vocab' | 'lexicalShortlist',
-    onProgress?: (pct: number, msg: string) => void
+    onProgress?: (pct: number, msg: string) => void,
+    forceRedownload = false
   ): Promise<string> {
     const metadata = await this.fetchMetadata(pair);
     const file = metadata.files[fileKey];
+    // GCS paths are relative to baseUrl
     const url = `${metadata.baseUrl}/${file.path}`;
+    // Local file name: strip the directory path from GCS, keep only the filename without .gz
+    const gcsFileName = file.path.split('/').pop() ?? file.path;
+    const baseName = gcsFileName.replace(/\.gz$/, '');
     const p = this.nodeRequire<typeof import('node:path')>('path');
     const fs = this.nodeRequire<typeof import('node:fs')>('fs');
     const fsPromises = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
 
-    // Determine local file name
-    const baseName = p.basename(file.path, '.gz');
     const localPath = p.join(this.pairDir(pair), baseName);
 
-    // Check if already downloaded
-    if (fs.existsSync(localPath)) {
-      return localPath;
+    // Check if already downloaded (unless forced)
+    if (!forceRedownload && fs.existsSync(localPath)) {
+      // Verify the file is not empty or corrupted
+      const stats = fs.statSync(localPath);
+      if (stats.size > 0) {
+        return localPath;
+      }
+      // File exists but is empty, remove it and continue to download
+      await fsPromises.unlink(localPath).catch(() => {});
     }
 
     // Ensure directory exists
@@ -263,7 +276,14 @@ export class BergamotModelDownloader {
 
     // Download with progress
     const tempPath = `${localPath}.download`;
-    const response = await fetch(url);
+
+    // IMPORTANT: Set Accept-Encoding: identity to prevent Node.js fetch() from
+    // auto-decompressing gzip responses. Without this, fetch() decompresses the
+    // .gz file on-the-fly, and our subsequent zlib.gunzipSync() call fails with
+    // "incorrect header check" because the saved data is already plain bytes.
+    const response = await fetch(url, {
+      headers: { 'Accept-Encoding': 'identity' },
+    });
     if (!response.ok) {
       throw new Error(`Download failed for ${fileKey} of ${pair}: HTTP ${response.status}`);
     }
@@ -307,8 +327,15 @@ export class BergamotModelDownloader {
 
     // Decompress if gzipped
     if (file.path.endsWith('.gz')) {
-      await this.decompress(tempPath, localPath);
-      await fsPromises.unlink(tempPath).catch(() => {});
+      try {
+        await this.decompress(tempPath, localPath);
+        await fsPromises.unlink(tempPath).catch(() => {});
+      } catch (error) {
+        // Clean up the temp file on failure
+        await fsPromises.unlink(tempPath).catch(() => {});
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to decompress ${fileKey} for ${pair}: ${msg}. The downloaded file may be corrupted.`);
+      }
     } else {
       fs.renameSync(tempPath, localPath);
     }
@@ -322,12 +349,13 @@ export class BergamotModelDownloader {
    */
   async downloadModel(
     pair: string,
-    onProgress?: (pct: number, msg: string) => void
+    onProgress?: (pct: number, msg: string) => void,
+    forceRedownload = false
   ): Promise<{ model: string; vocab: string; shortlist: string }> {
     const results = await Promise.all([
-      this.downloadFile(pair, 'model', onProgress),
-      this.downloadFile(pair, 'vocab', onProgress),
-      this.downloadFile(pair, 'lexicalShortlist', onProgress),
+      this.downloadFile(pair, 'model', onProgress, forceRedownload),
+      this.downloadFile(pair, 'vocab', onProgress, forceRedownload),
+      this.downloadFile(pair, 'lexicalShortlist', onProgress, forceRedownload),
     ]);
 
     return {
@@ -376,10 +404,18 @@ export class BergamotModelDownloader {
    */
   private async decompress(input: string, output: string): Promise<void> {
     const zlib = this.nodeRequire<typeof import('node:zlib')>('zlib');
-    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
     const fsPromises = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
 
     const data = await fsPromises.readFile(input);
+    
+    // Check if data looks like gzip (magic bytes: 0x1f 0x8b)
+    if (data.length < 2 || data[0] !== 0x1f || data[1] !== 0x8b) {
+      throw new Error(
+        `File is not in gzip format (magic bytes: 0x${data[0]?.toString(16)} 0x${data[1]?.toString(16)}). ` +
+        `The file may have been auto-decompressed by fetch(). Try clearing the model cache and reinstalling.`
+      );
+    }
+    
     const decompressed = zlib.gunzipSync(data);
     await fsPromises.writeFile(output, decompressed);
   }
@@ -840,6 +876,30 @@ export class BergamotTranslationProvider implements ITranslationProvider {
       return true;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      
+      // If decompression failed, try to force re-download
+      if (msg.includes('decompress') || msg.includes('gzip') || msg.includes('incorrect header')) {
+        if (onProgress) {
+          onProgress(0, 'Decompression failed, clearing cache and retrying...');
+        }
+        try {
+          // Remove corrupted files
+          await this.downloader.removeModel(pair);
+          // Force re-download
+          await this.downloader.downloadModel(pair, onProgress, true);
+          await this.backing.terminate();
+          this.isInitialized = false;
+          this.destroyTranslator();
+          return true;
+        } catch (retryError) {
+          const retryMsg = retryError instanceof Error ? retryError.message : String(retryError);
+          if (onProgress) {
+            onProgress(0, `Error after retry: ${retryMsg}`);
+          }
+          throw new Error(`Failed to install Bergamot model ${pair} (even after retry): ${retryMsg}`);
+        }
+      }
+      
       if (onProgress) {
         onProgress(0, `Error: ${msg}`);
       }
