@@ -439,25 +439,6 @@ export class TranslationManager {
     targetLang: string,
     cacheKey: string
   ): Promise<TranslationResult> {
-    // Prepare the text: if HTML, exclude signatures, quotes, and code blocks
-    const text = request.isHtml
-      ? HtmlTranslator.preprocessHtml(request.text, {
-          excludeSignatures: this.settings.excludeSignatures,
-          excludeQuotedReplies: this.settings.excludeQuotedReplies,
-          excludeCodeBlocks: this.settings.excludeCodeBlocks,
-        })
-      : request.text;
-
-    // Build the translation request
-    const translateRequest: TranslationRequest = {
-      ...request,
-      text,
-      sourceLang,
-      targetLang,
-      isHtml: request.isHtml,
-    };
-
-    // Resolve the primary provider
     let provider = await this.resolveProvider(sourceLang, targetLang);
 
     // If no provider is available and auto-download is enabled,
@@ -467,10 +448,8 @@ export class TranslationManager {
       if (bergamot) {
         const pair = `${sourceLang}-${targetLang}`;
         try {
-          // Download the Bergamot model for the language pair
           const downloaded = await this.ensureBergamotModel(sourceLang, targetLang, request.onProgress);
           if (downloaded) {
-            // Re-resolve the provider after download
             provider = await this.resolveProvider(sourceLang, targetLang);
             if (!provider) {
               throw new Error(
@@ -498,64 +477,87 @@ export class TranslationManager {
       );
     }
 
-    // Try the primary provider
+    const providerInfo = provider.getInfo();
+
+    // Check if HTML processing is needed
+    if (request.isHtml) {
+      const translatedHtml = await HtmlTranslator.translateHtml(
+        request.text,
+        async (segments) => {
+          const batchResults: string[] = [];
+          for (const seg of segments) {
+            const segResult = await provider.translate({
+              id: `${request.id}_seg`,
+              text: seg,
+              sourceLang,
+              targetLang,
+              timeoutMs: request.timeoutMs,
+            });
+            batchResults.push(segResult.translatedText);
+          }
+          return batchResults;
+        },
+        {
+          excludeSignatures: this.settings.excludeSignatures,
+          excludeQuotedReplies: this.settings.excludeQuotedReplies,
+          excludeCodeBlocks: this.settings.excludeCodeBlocks,
+        }
+      );
+
+      const result: TranslationResult = {
+        id: request.id,
+        translatedText: translatedHtml,
+        detectedSourceLang: sourceLang,
+        targetLang,
+        providerUsed: providerInfo.id,
+        providerName: providerInfo.name,
+        fromCache: false,
+        durationMs: 0,
+      };
+
+      if (this.settings.cacheEnabled) {
+        this.cache.set(cacheKey, result.translatedText, sourceLang, targetLang, providerInfo.id);
+      }
+
+      return result;
+    }
+
+    // Plain text translation
     try {
-      const result = await provider.translate(translateRequest);
-      this.cacheResult(cacheKey, result, sourceLang, targetLang);
+      const result = await provider.translate({
+        ...request,
+        sourceLang,
+        targetLang,
+      });
+
+      if (this.settings.cacheEnabled) {
+        this.cache.set(cacheKey, result.translatedText, sourceLang, targetLang, result.providerUsed);
+      }
+
       return result;
     } catch (err: any) {
-      // Fallback: try other providers in priority order
-      // However, if the user explicitly selected a non-Bergamot provider (e.g. Apple),
-      // do not fall back to Bergamot unless autoFallback is explicitly true.
-      const failedProviderId = provider.getInfo().id;
-      const shouldFallback = this.settings.autoFallback &&
-        // Never fall back to Bergamot if the user explicitly selected a non-Bergamot provider
-        !(this.settings.preferredProvider !== 'auto' &&
-          this.settings.preferredProvider !== 'bergamot' &&
-          failedProviderId === this.settings.preferredProvider);
-
-      if (shouldFallback) {
-        const providerInfo = provider.getInfo();
+      if (this.settings.autoFallback) {
         const fallbacks = this.getPriorityList().filter((id) => id !== providerInfo.id);
         for (const fId of fallbacks) {
           const fallbackProvider = this.providers.get(fId);
-
-          // If the fallback is Bergamot and the model is not installed, try to download it
-          if (fId === 'bergamot' && fallbackProvider) {
-            const canTranslate = await fallbackProvider.canTranslate(sourceLang, targetLang);
-            if (!canTranslate) {
-              // Model not installed, try to download it
-              const downloaded = await this.ensureBergamotModel(sourceLang, targetLang, request.onProgress);
-              if (!downloaded) {
-                // Download failed, try the next fallback
-                continue;
-              }
-            }
-          }
-
           if (fallbackProvider && (await fallbackProvider.isAvailable())) {
             try {
-              const fbResult = await fallbackProvider.translate(translateRequest);
-              this.cacheResult(cacheKey, fbResult, sourceLang, targetLang);
+              const fbResult = await fallbackProvider.translate({
+                ...request,
+                sourceLang,
+                targetLang,
+              });
+              if (this.settings.cacheEnabled) {
+                this.cache.set(cacheKey, fbResult.translatedText, sourceLang, targetLang, fbResult.providerUsed);
+              }
               return fbResult;
             } catch {
-              // Try the next fallback
+              // Try next fallback
             }
           }
         }
       }
       throw err;
-    }
-  }
-
-  private cacheResult(
-    cacheKey: string,
-    result: TranslationResult,
-    sourceLang: string,
-    targetLang: string
-  ): void {
-    if (this.settings.cacheEnabled) {
-      this.cache.set(cacheKey, result.translatedText, sourceLang, targetLang, result.providerUsed);
     }
   }
 
