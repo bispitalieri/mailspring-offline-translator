@@ -99,7 +99,7 @@ export class ProcessManager {
 
     if (f) {
       exists = f.existsSync(helperPath);
-      canExecute = exists; // Node.js scripts are always executable
+      canExecute = exists;
     } else {
       exists = platform === 'win32';
       canExecute = platform === 'win32';
@@ -180,7 +180,27 @@ export class ProcessManager {
   }
 
   /**
+   * Gets child_process from Electron main process via @electron/remote.
+   * This bypasses the macOS seatbelt sandbox that prevents spawning from the renderer.
+   */
+  public static getChildProcessFromMain(): any {
+    try {
+      // @electron/remote is available in Mailspring plugins
+      const remote = (typeof window !== 'undefined' && (window as any).require)
+        ? (window as any).require('@electron/remote')
+        : null;
+      if (remote) {
+        return remote.require('child_process');
+      }
+    } catch {
+      // @electron/remote not available
+    }
+    return null;
+  }
+
+  /**
    * Spawns a child process safely without shell execution.
+   * Uses @electron/remote to spawn from the main process when the renderer is sandboxed.
    */
   public static spawnWorker(
     executablePath: string,
@@ -193,6 +213,28 @@ export class ProcessManager {
       ...envOverrides,
     };
 
+    // For Node.js scripts, spawn with 'node' as the executable
+    const cmd = isNodeScript ? 'node' : executablePath;
+    const spawnArgs = isNodeScript ? [executablePath, ...args] : args;
+
+    // First, try to get child_process from Electron main process via @electron/remote
+    // This bypasses the macOS seatbelt sandbox that prevents spawning from the renderer
+    const cpRemote = this.getChildProcessFromMain();
+    if (cpRemote && typeof cpRemote.spawn === 'function') {
+      console.log('[ProcessManager] Using child_process from Electron main process via @electron/remote');
+      const proc = cpRemote.spawn(cmd, spawnArgs, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env,
+        windowsHide: true,
+      });
+      this.activeProcesses.add(proc);
+      proc.on('exit', () => {
+        this.activeProcesses.delete(proc);
+      });
+      return proc;
+    }
+
+    // Fallback: try local child_process
     const cp = getNativeNodeModule<any>('child_process');
     if (!cp || typeof cp.spawn !== 'function') {
       // Browser environment mock
@@ -205,10 +247,6 @@ export class ProcessManager {
         killed: false,
       };
     }
-
-    // For Node.js scripts, spawn with 'node' as the executable
-    const cmd = isNodeScript ? 'node' : executablePath;
-    const spawnArgs = isNodeScript ? [executablePath, ...args] : args;
 
     const proc = cp.spawn(cmd, spawnArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],

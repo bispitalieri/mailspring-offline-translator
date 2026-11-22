@@ -30,6 +30,8 @@ export interface LanguagePair {
   providerId: ProviderId;
 }
 
+export type TranslationProgressCallback = (percent: number, message: string) => void;
+
 export interface TranslationRequest {
   id: string;
   text: string;
@@ -38,6 +40,7 @@ export interface TranslationRequest {
   isHtml?: boolean;
   providerId?: ProviderId;
   timeoutMs?: number;
+  onProgress?: TranslationProgressCallback;
 }
 
 export interface TranslationResult {

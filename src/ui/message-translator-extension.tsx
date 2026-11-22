@@ -46,16 +46,17 @@ export const MessageTranslatorHeader: React.FC<{
   const [sourceLang, setSourceLang] = useState<string>('auto');
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ percent: number; message: string } | null>(null);
 
   // Reset translation state when the selected message changes
   useEffect(() => {
-    // Prima di passare alla nuova email, ripristiniamo la cache dell'email precedente
-    // con il corpo originale e puliamo la presentation così quando l'utente torna indietro
-    // vede il messaggio originale, non la traduzione riapplicata.
+    // Before switching to the new email, restore the previous email's cache
+    // with the original body and clear the presentation so when the user goes back
+    // they see the original message, not the re-applied translation.
     (async () => {
       await restoreCurrentMessageCache();
-      // Puliamo la presentation del messaggio precedente così non viene riapplicata
-      // quando l'utente torna indietro.
+      // Clear the previous message's presentation so it doesn't get re-applied
+      // when the user goes back.
       const prevId = currentMessageIdGetter();
       if (prevId) {
         clearMessageTranslationPresentation(prevId);
@@ -73,12 +74,13 @@ export const MessageTranslatorHeader: React.FC<{
   const handleTranslate = async (overrideTarget?: string, overrideProvider?: ProviderId) => {
     setIsTranslating(true);
     setError(null);
+    setProgress(null);
     try {
       const tgt = overrideTarget || targetLang;
       const source = getMessageTranslationSource(message);
 
-      // Per i messaggi plaintext, convertiamo il corpo HTML in testo puro prima della traduzione
-      // per evitare che i tag <br> e altri tag HTML vengano passati al modello di traduzione
+      // For plaintext messages, convert the HTML body to plain text before translation
+      // to prevent <br> and other HTML tags from being passed to the translation model
       const textToTranslate = source.isPlaintext
         ? htmlToPlaintext(source.body)
         : source.body;
@@ -90,6 +92,9 @@ export const MessageTranslatorHeader: React.FC<{
         targetLang: tgt,
         isHtml: !source.isPlaintext,
         providerId: overrideProvider,
+        onProgress: (percent: number, message: string) => {
+          setProgress({ percent, message });
+        },
       });
 
       const visibleResult = source.isPlaintext
@@ -105,6 +110,7 @@ export const MessageTranslatorHeader: React.FC<{
       setError(err.message || 'Translation failed. Ensure offline language model is installed.');
     } finally {
       setIsTranslating(false);
+      setProgress(null);
     }
   };
 
@@ -243,6 +249,19 @@ export const MessageTranslatorHeader: React.FC<{
           </div>
         )}
       </div>
+
+      {/* Progress bar for model download - centered below the header row */}
+      {progress && (
+        <div className="offline-translator-progress">
+          <div className="offline-translator-progress-bar">
+            <div
+              className="offline-translator-progress-bar-fill"
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+          <span className="offline-translator-progress-message">{progress.message}</span>
+        </div>
+      )}
 
       {/* Error state */}
       {error && (

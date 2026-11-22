@@ -157,14 +157,123 @@ export class TranslationManager {
   }
 
   /**
+   * Checks whether the Bergamot model for the given language pair is installed.
+   * If not installed, it automatically downloads it.
+   * 
+   * @param sourceLang Normalized source language
+   * @param targetLang Normalized target language
+   * @param onProgress Optional callback for download progress
+   * @returns true if the model was already installed or successfully downloaded, false otherwise
+   */
+  public async ensureBergamotModel(
+    sourceLang: string,
+    targetLang: string,
+    onProgress?: (percent: number, message: string) => void
+  ): Promise<boolean> {
+    const pair = `${sourceLang}-${targetLang}`;
+    const bergamot = this.providers.get('bergamot');
+    if (!bergamot) {
+      return false;
+    }
+
+    // Check if the model is already installed
+    const isInstalled = await bergamot.canTranslate(sourceLang, targetLang);
+    if (isInstalled) {
+      return true;
+    }
+
+    // Model not installed, try to download it
+    if (bergamot.installModel) {
+      try {
+        if (onProgress) {
+          onProgress(0, `Downloading Bergamot model ${pair}...`);
+        }
+        const success = await bergamot.installModel(sourceLang, targetLang, onProgress);
+        if (success) {
+          if (onProgress) {
+            onProgress(100, `Model ${pair} installed successfully.`);
+          }
+          return true;
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (onProgress) {
+          onProgress(0, `Error downloading model ${pair}: ${msg}`);
+        }
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Asynchronously determines whether automatic Bergamot model download should be performed.
+   * 
+   * Bergamot should only be downloaded as a last resort when no other provider
+   * (Apple, Edge) is available and can translate the language pair.
+   * 
+   * 3 cases:
+   * 1. Bergamot provider explicitly selected → always download
+   * 2. Non-Bergamot provider explicitly selected (e.g. Apple, Edge) → never download Bergamot
+   * 3. Auto provider mode → download Bergamot only if no non-Bergamot provider can translate
+   * 
+   * @param sourceLang Normalized source language
+   * @param targetLang Normalized target language
+   * @returns true if automatic download should be performed
+   */
+  private async shouldAutoDownloadBergamot(sourceLang: string, targetLang: string): Promise<boolean> {
+    const preferred = this.settings.preferredProvider;
+    const allowFallback = this.settings.autoFallback;
+
+    // Case 1: Bergamot provider explicitly selected → always download
+    if (preferred === 'bergamot') {
+      return true;
+    }
+
+    // Case 2: user explicitly selected a non-Bergamot provider (e.g. Apple, Edge)
+    // → never auto-download Bergamot, respect the user's choice
+    if (preferred !== 'auto') {
+      return false;
+    }
+
+    // Case 3: auto provider mode
+    // Only download Bergamot if no non-Bergamot provider is available and can translate
+    const priority = this.getPriorityList();
+
+    // Check if any non-Bergamot provider can handle this translation
+    for (const pid of priority) {
+      if (pid === 'bergamot') continue; // Skip Bergamot — we're checking if we NEED it
+      const p = this.providers.get(pid);
+      if (!p) continue;
+
+      // If a non-Bergamot provider is available and can translate, don't download Bergamot
+      const avail = await p.isAvailable();
+      if (avail) {
+        const can = await p.canTranslate(sourceLang, targetLang);
+        if (can) {
+          // A non-Bergamot provider can handle this — no need to download Bergamot
+          return false;
+        }
+      }
+    }
+
+    // No non-Bergamot provider can translate — Bergamot is the last resort
+    // Only download if Bergamot is in the priority list and fallback is allowed
+    return allowFallback && priority.includes('bergamot');
+  }
+
+  /**
    * Resolves the primary provider to use, honoring preferredProvider or automatic platform priority.
    * 
-   * Se preferredProvider non è 'auto':
-   *   - Se autoFallback è true: prova il provider preferito, poi ricade sugli altri in ordine di priorità.
-   *   - Se autoFallback è false: usa solo il provider preferito senza fallback.
-   * Se preferredProvider è 'auto':
-   *   - Se autoFallback è true: usa la lista di priorità della piattaforma provando tutti i provider.
-   *   - Se autoFallback è false: usa solo il primo provider della lista di priorità.
+   * If preferredProvider is not 'auto':
+   *   - If autoFallback is true: try the preferred provider, then fall back to others in priority order.
+   *     However, if the preferred provider is a non-Bergamot provider (e.g. Apple), never fall back
+   *     to Bergamot — respect the user's explicit choice.
+   *   - If autoFallback is false: use only the preferred provider without fallback.
+   * If preferredProvider is 'auto':
+   *   - If autoFallback is true: use the platform priority list, trying all providers.
+   *   - If autoFallback is false: use only the first provider in the priority list.
    */
   public async resolveProvider(
     sourceLang: string,
@@ -173,7 +282,7 @@ export class TranslationManager {
     const preferred = this.settings.preferredProvider;
     const allowFallback = this.settings.autoFallback;
 
-    /** Helper: prova un singolo provider */
+    /** Helper: try a single provider */
     const tryProvider = async (pid: ProviderId): Promise<ITranslationProvider | null> => {
       const p = this.providers.get(pid);
       if (!p) return null;
@@ -185,15 +294,19 @@ export class TranslationManager {
     };
 
     if (preferred !== 'auto') {
-      // Provider specifico selezionato dall'utente
+      // Specific provider selected by the user
       const result = await tryProvider(preferred);
       if (result) return result;
 
-      // Se il provider preferito non funziona e il fallback è abilitato, prova gli altri
+      // If the preferred provider doesn't work and fallback is enabled, try others.
+      // However, if the user explicitly selected a non-Bergamot provider (e.g. Apple),
+      // do not fall back to Bergamot — respect the user's choice.
       if (allowFallback) {
         const priority = this.getPriorityList();
         for (const pid of priority) {
-          if (pid === preferred) continue; // Salta il provider già provato
+          if (pid === preferred) continue; // Skip the already-tried provider
+          // If the user selected a non-Bergamot provider, skip Bergamot fallback
+          if (preferred !== 'bergamot' && pid === 'bergamot') continue;
           const result = await tryProvider(pid);
           if (result) return result;
         }
@@ -202,15 +315,15 @@ export class TranslationManager {
       return null;
     }
 
-    // Modalità 'auto': usa la lista di priorità della piattaforma
+    // 'auto' mode: use the platform priority list
     const priority = this.getPriorityList();
     
     if (!allowFallback) {
-      // Senza fallback, prova solo il primo provider della lista
+      // Without fallback, try only the first provider in the list
       return await tryProvider(priority[0]);
     }
 
-    // Con fallback abilitato, prova tutti i provider in ordine di priorità
+    // With fallback enabled, try all providers in priority order
     for (const pid of priority) {
       const result = await tryProvider(pid);
       if (result) return result;
@@ -326,7 +439,7 @@ export class TranslationManager {
     targetLang: string,
     cacheKey: string
   ): Promise<TranslationResult> {
-    // Prepara il testo: se HTML, esclude firme, citazioni e blocchi di codice
+    // Prepare the text: if HTML, exclude signatures, quotes, and code blocks
     const text = request.isHtml
       ? HtmlTranslator.preprocessHtml(request.text, {
           excludeSignatures: this.settings.excludeSignatures,
@@ -335,7 +448,7 @@ export class TranslationManager {
         })
       : request.text;
 
-    // Costruisce la richiesta di traduzione
+    // Build the translation request
     const translateRequest: TranslationRequest = {
       ...request,
       text,
@@ -344,33 +457,89 @@ export class TranslationManager {
       isHtml: request.isHtml,
     };
 
-    // Risolve il provider primario
-    const provider = await this.resolveProvider(sourceLang, targetLang);
+    // Resolve the primary provider
+    let provider = await this.resolveProvider(sourceLang, targetLang);
+
+    // If no provider is available and auto-download is enabled,
+    // try to download the Bergamot model and re-resolve the provider
+    if (!provider && await this.shouldAutoDownloadBergamot(sourceLang, targetLang)) {
+      const bergamot = this.providers.get('bergamot');
+      if (bergamot) {
+        const pair = `${sourceLang}-${targetLang}`;
+        try {
+          // Download the Bergamot model for the language pair
+          const downloaded = await this.ensureBergamotModel(sourceLang, targetLang, request.onProgress);
+          if (downloaded) {
+            // Re-resolve the provider after download
+            provider = await this.resolveProvider(sourceLang, targetLang);
+            if (!provider) {
+              throw new Error(
+                `Bergamot model ${pair} downloaded but no provider is available for ${sourceLang} -> ${targetLang}.`
+              );
+            }
+          } else {
+            throw new Error(
+              `Unable to download Bergamot model for ${pair}. ` +
+              `Check your internet connection or install the model manually from preferences.`
+            );
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `No offline translation provider available for ${sourceLang} -> ${targetLang}. ${msg}`
+          );
+        }
+      }
+    }
+
     if (!provider) {
       throw new Error(
         `No offline translation provider is available for ${sourceLang} -> ${targetLang}. Ensure a supported offline provider and language models are installed.`
       );
     }
 
-    // Prova il provider primario
+    // Try the primary provider
     try {
       const result = await provider.translate(translateRequest);
       this.cacheResult(cacheKey, result, sourceLang, targetLang);
       return result;
     } catch (err: any) {
-      // Fallback: prova gli altri provider in ordine di priorità
-      if (this.settings.autoFallback) {
+      // Fallback: try other providers in priority order
+      // However, if the user explicitly selected a non-Bergamot provider (e.g. Apple),
+      // do not fall back to Bergamot unless autoFallback is explicitly true.
+      const failedProviderId = provider.getInfo().id;
+      const shouldFallback = this.settings.autoFallback &&
+        // Never fall back to Bergamot if the user explicitly selected a non-Bergamot provider
+        !(this.settings.preferredProvider !== 'auto' &&
+          this.settings.preferredProvider !== 'bergamot' &&
+          failedProviderId === this.settings.preferredProvider);
+
+      if (shouldFallback) {
         const providerInfo = provider.getInfo();
         const fallbacks = this.getPriorityList().filter((id) => id !== providerInfo.id);
         for (const fId of fallbacks) {
           const fallbackProvider = this.providers.get(fId);
+
+          // If the fallback is Bergamot and the model is not installed, try to download it
+          if (fId === 'bergamot' && fallbackProvider) {
+            const canTranslate = await fallbackProvider.canTranslate(sourceLang, targetLang);
+            if (!canTranslate) {
+              // Model not installed, try to download it
+              const downloaded = await this.ensureBergamotModel(sourceLang, targetLang, request.onProgress);
+              if (!downloaded) {
+                // Download failed, try the next fallback
+                continue;
+              }
+            }
+          }
+
           if (fallbackProvider && (await fallbackProvider.isAvailable())) {
             try {
               const fbResult = await fallbackProvider.translate(translateRequest);
               this.cacheResult(cacheKey, fbResult, sourceLang, targetLang);
               return fbResult;
             } catch {
-              // Prova il prossimo fallback
+              // Try the next fallback
             }
           }
         }

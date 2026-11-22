@@ -189,7 +189,7 @@ struct CLIEntry {
             let bridge = AppleTranslationBridge()
             let input = FileHandle.standardInput
             var buffer = ""
-            
+
             while true {
                 let chunk = input.availableData
                 if chunk.isEmpty {
@@ -197,18 +197,18 @@ struct CLIEntry {
                     try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
                     continue
                 }
-                
+
                 if let text = String(data: chunk, encoding: .utf8) {
                     buffer += text
                 }
-                
+
                 while let newlineRange = buffer.range(of: "\n") {
                     let endIndex = buffer.index(newlineRange.lowerBound, offsetBy: 1)
                     let line = String(buffer[..<newlineRange.lowerBound]).trimmingCharacters(in: .whitespaces)
                     buffer.removeSubrange(buffer.startIndex..<endIndex)
-                    
+
                     guard !line.isEmpty else { continue }
-                    
+
                     do {
                         let request = try JSONDecoder().decode(IPCRequest.self, from: Data(line.utf8))
                         await handleRequest(request, bridge: bridge)
@@ -230,7 +230,7 @@ func handleRequest(_ req: IPCRequest, bridge: AppleTranslationBridge) async {
     switch req.action {
     case "ping":
         sendJSONResponse(id: req.id, action: "ping", payload: ["status": "ok", "version": "1.0.0"], error: nil)
-        
+
     case "status":
         let isAvail = bridge.checkAvailability()
         sendJSONResponse(id: req.id, action: "status", payload: [
@@ -238,30 +238,30 @@ func handleRequest(_ req: IPCRequest, bridge: AppleTranslationBridge) async {
             "os": "macOS 15+",
             "provider": "apple"
         ] as [String: String], error: nil)
-        
+
     case "list_languages":
         let pairs = bridge.getSupportedLanguages()
         sendJSONResponse(id: req.id, action: "list_languages", payload: pairs, error: nil)
-        
+
     case "detect":
         let text = req.payload?.text ?? ""
         let detected = bridge.detectLanguage(text: text)
         sendJSONResponse(id: req.id, action: "detect", payload: detected, error: nil)
-        
+
     case "translate":
         let text = req.payload?.text ?? ""
         let src = req.payload?.sourceLang ?? "auto"
         let tgt = req.payload?.targetLang ?? "en"
-        
+
         let detected = src == "auto" ? bridge.detectLanguage(text: text).language : src
         let start = Date()
-        
+
         // Call translateBatch with a timeout to prevent hanging
         do {
             let translatedTexts = try await withTimeout(seconds: 10) {
                 try await bridge.translateBatch(texts: [text], source: detected, target: tgt)
             }
-            
+
             let durationMs = Date().timeIntervalSince(start) * 1000
             let translatedText = translatedTexts.first ?? text
             let payload = TranslationPayload(
@@ -275,7 +275,7 @@ func handleRequest(_ req: IPCRequest, bridge: AppleTranslationBridge) async {
             let err = IPCError(code: "TRANSLATION_ERROR", message: error.localizedDescription)
             sendJSONResponse(id: req.id, action: "translate", payload: TranslationPayload?.none, error: err)
         }
-        
+
     default:
         let err = IPCError(code: "UNKNOWN_ACTION", message: "Action \(req.action) is not recognized")
         sendJSONResponse(id: req.id, action: req.action, payload: String?.none, error: err)
@@ -289,7 +289,7 @@ func withTimeout<T>(seconds: Int, operation: @escaping () async throws -> T) asy
         group.addTask {
             try await operation()
         }
-        
+
         // Start the timeout task
         group.addTask {
             try await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
@@ -297,14 +297,14 @@ func withTimeout<T>(seconds: Int, operation: @escaping () async throws -> T) asy
                 NSLocalizedDescriptionKey: "Operation timed out after \(seconds) seconds"
             ])
         }
-        
+
         // Wait for the first task to complete
         guard let result = try await group.next() else {
             throw NSError(domain: "Timeout", code: 408, userInfo: [
                 NSLocalizedDescriptionKey: "Operation timed out after \(seconds) seconds"
             ])
         }
-        
+
         // Cancel the other task
         group.cancelAll()
         return result

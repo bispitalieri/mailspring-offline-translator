@@ -1,6 +1,6 @@
 /**
  * Apple Translation Framework Provider (macOS 15+)
- * 
+ *
  * Uses bundled standalone native Swift binary or compiles helper.
  */
 

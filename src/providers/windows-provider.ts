@@ -57,17 +57,12 @@ export class WindowsAiProvider implements ITranslationProvider {
   }
 
   public async isAvailable(): Promise<boolean> {
-    if (!this.isWindows || !this.resolution.exists) {
-      return false;
-    }
-
-    try {
-      const client = this.getIpcClient();
-      const res = await client.sendRequest('ping', {}, 5000);
-      return res?.status === 'ok';
-    } catch {
-      return false;
-    }
+    // Check if the platform and helper script are available.
+    // We intentionally skip the IPC ping here because the first cold-start
+    // spawn can be slow and would make the provider appear unavailable even
+    // when the helper is correctly installed. The actual connectivity is
+    // verified lazily when a real request (detect, translate, etc.) is sent.
+    return this.isWindows && this.resolution.exists;
   }
 
   public async getSupportedLanguages(): Promise<LanguagePair[]> {

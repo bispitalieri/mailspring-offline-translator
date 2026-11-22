@@ -42,6 +42,7 @@ export const ComposerTranslateModal: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [hasTranslated, setHasTranslated] = useState<boolean>(false);
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>('auto');
+  const [progress, setProgress] = useState<{ percent: number; message: string } | null>(null);
 
   const languages = getCommonLanguages();
 
@@ -50,6 +51,7 @@ export const ComposerTranslateModal: React.FC<{
   const handleTranslate = async () => {
     setIsTranslating(true);
     setError(null);
+    setProgress(null);
     try {
       const res = await manager.translate({
         id: `draft_${Date.now()}`,
@@ -58,6 +60,9 @@ export const ComposerTranslateModal: React.FC<{
         targetLang,
         isHtml: true,
         providerId: selectedProvider === 'auto' ? undefined : selectedProvider,
+        onProgress: (percent, message) => {
+          setProgress({ percent, message });
+        },
       });
       setTranslatedText(res.translatedText);
       setDetectedLang(res.detectedSourceLang || null);
@@ -66,6 +71,7 @@ export const ComposerTranslateModal: React.FC<{
       setError(err.message || 'Failed to translate draft.');
     } finally {
       setIsTranslating(false);
+      setProgress(null);
     }
   };
 
@@ -149,6 +155,17 @@ export const ComposerTranslateModal: React.FC<{
           >
             {isTranslating ? 'Translating...' : hasTranslated ? 'Re-Translate' : 'Generate Translation'}
           </button>
+          {progress && (
+            <div className="offline-translator-progress">
+              <div className="offline-translator-progress-bar">
+                <div
+                  className="offline-translator-progress-bar-fill"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+              <span className="offline-translator-progress-message">{progress.message}</span>
+            </div>
+          )}
         </div>
 
         {/* Comparison Body */}
@@ -178,7 +195,19 @@ export const ComposerTranslateModal: React.FC<{
             {isTranslating ? (
               <div className="offline-translator-loading">
                 <span className="offline-translator-spinner" />
-                <span className="offline-translator-loading-text">Processing offline model inference...</span>
+                {progress ? (
+                  <div className="offline-translator-loading-progress">
+                    <span className="offline-translator-loading-text">{progress.message}</span>
+                    <div className="offline-translator-progress-bar">
+                      <div
+                        className="offline-translator-progress-bar-fill"
+                        style={{ width: `${progress.percent}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <span className="offline-translator-loading-text">Processing offline model inference...</span>
+                )}
               </div>
             ) : error ? (
               <div className="offline-translator-error-box">
