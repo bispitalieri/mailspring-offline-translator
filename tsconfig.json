@@ -9,7 +9,11 @@
     "declarationMap": false,
     "sourceMap": false,
     "outDir": "./lib",
-    "rootDir": "./src",
+    "noEmit": true,
+    "paths": {
+      "mailspring-exports": ["/Users/biagio/Sites/Mailspring/app/src/global/mailspring-exports.d.ts"],
+      "mailspring-component-kit": ["/Users/biagio/Sites/Mailspring/app/src/global/mailspring-component-kit.d.ts"]
+    },
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,

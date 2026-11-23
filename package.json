@@ -23,7 +23,8 @@
     "apple-translation"
   ],
   "scripts": {
-    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "build": "bash scripts/build.sh",
     "package": "bash scripts/package-plugin.sh",
     "debug": "npm run package && rm -rf \"/Users/biagio/Library/Application Support/Mailspring/packages/mailspring-offline-translator\" && cp -R dist-package/mailspring-offline-translator \"/Users/biagio/Library/Application Support/Mailspring/packages/\""
   },
@@ -40,6 +41,7 @@
     "@electron/remote": "^2.1.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   },
   "allowScripts": {

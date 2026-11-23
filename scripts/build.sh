@@ -10,9 +10,14 @@ echo "==============================================="
 
 cd "$PLUGIN_ROOT"
 
-# 1. Compile TypeScript source to lib/
+# 1. Compile TypeScript source to lib/ using esbuild
 echo "[1/4] Compiling TypeScript source from src/ to lib/..."
-npx tsc --project tsconfig.json
+npx esbuild $(find src -name '*.ts' -o -name '*.tsx') \
+  --outdir=lib \
+  --platform=node \
+  --target=node26 \
+  --format=cjs \
+  --jsx=react
 
 # 2. Verify lib/core/main.js compiled entry point
 if [[ ! -f "lib/core/main.js" ]]; then
