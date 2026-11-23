@@ -15,7 +15,7 @@ echo "[1/4] Compiling TypeScript source from src/ to lib/..."
 npx esbuild $(find src -name '*.ts' -o -name '*.tsx') \
   --outdir=lib \
   --platform=node \
-  --target=node26 \
+  --target=node24 \
   --format=cjs \
   --jsx=react
 

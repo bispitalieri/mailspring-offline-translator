@@ -5,14 +5,13 @@
   "main": "lib/core/main.js",
   "displayName": "Mailspring Offline Translator",
   "title": "Offline Translator",
-  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/bispitalieri/mailspring-offline-translator"
   },
   "license": "MIT",
   "engines": {
-    "mailspring": ">=1.6.3"
+    "mailspring": "*"
   },
   "keywords": [
     "mailspring",
@@ -39,13 +38,8 @@
   },
   "devDependencies": {
     "@electron/remote": "^2.1.4",
-    "@types/node": "^26.6.6",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
-    "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
-  },
-  "allowScripts": {
-    "onnxruntime-node@1.30.0": true,
-    "protobufjs@7.6.6": true
   }
 }
