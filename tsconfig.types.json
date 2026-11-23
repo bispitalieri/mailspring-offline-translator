@@ -1,0 +1,11 @@
+{
+  "extends": "tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "/",
+    "paths": {
+      "mailspring-exports": ["/Users/biagio/Sites/Mailspring/app/src/global/mailspring-exports.d.ts"],
+      "mailspring-component-kit": ["/Users/biagio/Sites/Mailspring/app/src/global/mailspring-component-kit.d.ts"]
+    }
+  }
+}

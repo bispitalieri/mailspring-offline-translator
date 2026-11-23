@@ -13,9 +13,9 @@
  */
 
 import React, { useEffect, useState } from '../utils/react-runtime';
-import { TranslationManager } from '../core/translation-manager';
+import { TranslationManager } from '../core';
 import { LanguagePair, ModelPackage, PluginSettings, ProviderInfo } from '../types';
-import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from '../utils/bcp47';
+import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from '../utils';
 import { confirmationWindow } from './confirmation-window';
 
 export const OfflineTranslatorSettingsTab: React.FC<{
@@ -24,6 +24,15 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   const [manager] = useState<TranslationManager>(
     () => props.manager || (window as any).__mailspring_offline_translator_manager || new TranslationManager()
   );
+
+  useEffect(() => {
+    const isLocalInstance = !props.manager && !(window as any).__mailspring_offline_translator_manager;
+    return () => {
+      if (isLocalInstance) {
+        manager.dispose();
+      }
+    };
+  }, [manager, props.manager]);
 
   const [settings, setSettings] = useState<PluginSettings>(() => manager.getSettings());
   const [providersInfo, setProvidersInfo] = useState<ProviderInfo[]>(() => manager.getProvidersInfo());

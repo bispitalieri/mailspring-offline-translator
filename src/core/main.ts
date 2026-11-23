@@ -83,23 +83,11 @@ export function deactivate(): void {
 }
 
 export function serialize(): Record<string, any> {
-  if (managerInstance) {
-    return {
-      settings: managerInstance.getSettings(),
-    };
-  }
   return {};
 }
 
 export function deserialize(data: Record<string, any>): void {
-  if (data?.settings) {
-    if (managerInstance) {
-      managerInstance.updateSettings(data.settings);
-    } else {
-      managerInstance = new TranslationManager(data.settings);
-      (globalThis as any).__mailspring_offline_translator_manager = managerInstance;
-    }
-  }
+  // Gestito automaticamente da AppEnv.config in TranslationManager
 }
 
 export function getManager(): TranslationManager | null {

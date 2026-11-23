@@ -28,18 +28,24 @@ import {
 } from '../types';
 import { TranslationCache, HtmlTranslator, getSystemLocale, normalizeLanguageTag, ProcessManager} from '../utils';
 
+declare const AppEnv: any;
+const CONFIG_KEY = 'mailspring-offline-translator.settings';
+
 export class TranslationManager {
   private readonly providers: Map<ProviderId, ITranslationProvider> = new Map();
   private readonly cache: TranslationCache;
   private settings: PluginSettings;
   private readonly inFlightRequests: Map<string, Promise<TranslationResult>> = new Map();
   private readonly platform: SupportedPlatform;
+  private configSubscription: { dispose: () => void } | null = null;
 
   constructor(
     customSettings?: Partial<PluginSettings>,
     customProviders?: Map<ProviderId, ITranslationProvider>
   ) {
     this.platform = (typeof process !== 'undefined' && (process.platform as SupportedPlatform)) || 'linux';
+
+    const persistedSettings = this.loadFromAppEnv();
 
     this.settings = {
       defaultTargetLanguage: 'system',
@@ -54,8 +60,17 @@ export class TranslationManager {
       cacheTTLHours: 720,
       maxCacheSizeMB: 50,
       appleHelperPath: 'helpers/apple/bin/apple-translator-darwin-universal',
+      ...persistedSettings,
       ...customSettings,
     };
+
+    if (AppEnv !== undefined && AppEnv.config?.onDidChange) {
+      this.configSubscription = AppEnv.config.onDidChange(CONFIG_KEY, ({ newValue }: { newValue?: Partial<PluginSettings> }) => {
+        if (newValue) {
+          this.settings = { ...this.settings, ...newValue };
+        }
+      });
+    }
 
     this.cache = new TranslationCache(this.settings.maxCacheSizeMB, this.settings.cacheTTLHours);
 
@@ -72,11 +87,21 @@ export class TranslationManager {
     this.providers.set('bergamot', new BergamotTranslationProvider());
   }
 
+  private loadFromAppEnv(): Partial<PluginSettings> {
+    if (AppEnv !== 'undefined' && AppEnv.config?.get) {
+      return AppEnv.config.get(CONFIG_KEY) || {};
+    }
+    return {};
+  }
+
   /**
    * Updates configuration settings.
    */
   public updateSettings(newSettings: Partial<PluginSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
+    if (AppEnv !== 'undefined' && AppEnv.config?.set) {
+      AppEnv.config.set(CONFIG_KEY, this.settings);
+    }
   }
 
   public getSettings(): PluginSettings {
@@ -568,6 +593,10 @@ export class TranslationManager {
   }
 
   public dispose(): void {
+    if (this.configSubscription) {
+      this.configSubscription.dispose();
+      this.configSubscription = null;
+    }
     for (const provider of this.providers.values()) {
       provider.dispose();
     }
