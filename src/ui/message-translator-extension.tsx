@@ -9,9 +9,9 @@
  */
 
 import React, { useState, useEffect } from '../utils/react-runtime';
-import { TranslationManager } from '../core/translation-manager';
+import { TranslationManager } from '../core';
 import { TranslationResult, ProviderId } from '../types';
-import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
+import { getLanguageDisplayName, getCommonLanguages } from '../utils';
 import {
   getMessageTranslationSource,
   htmlToPlaintext,
@@ -272,3 +272,5 @@ export const MessageTranslatorHeader: React.FC<{
     </div>
   );
 };
+
+MessageTranslatorHeader.displayName = 'MessageTranslatorHeader';

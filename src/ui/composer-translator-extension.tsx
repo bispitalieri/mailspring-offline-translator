@@ -295,3 +295,5 @@ export const ComposerTranslatorButton: React.FC<{
     </>
   );
 };
+
+ComposerTranslatorButton.displayName = 'ComposerTranslatorButton';

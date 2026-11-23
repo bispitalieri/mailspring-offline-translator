@@ -3,4 +3,4 @@
  */
 
 export { TranslationManager } from './translation-manager';
-export { activate, deactivate, serialize, getManager } from './main';
+export { activate, deactivate, serialize, deserialize, getManager } from './main';

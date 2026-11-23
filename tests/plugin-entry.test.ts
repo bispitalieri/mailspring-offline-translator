@@ -64,6 +64,7 @@ test('Plugin lib/main.js exports lifecycle methods and can activate/deactivate s
   assert.equal(typeof plugin.activate, 'function', 'activate must be a function');
   assert.equal(typeof plugin.deactivate, 'function', 'deactivate must be a function');
   assert.equal(typeof plugin.serialize, 'function', 'serialize must be a function');
+  assert.equal(typeof plugin.deserialize, 'function', 'deserialize must be a function');
   assert.equal(typeof plugin.getManager, 'function', 'getManager must be a function');
 
   globalWithRegistry.ComponentRegistry = {
@@ -127,10 +128,34 @@ test('Plugin lib/main.js exports lifecycle methods and can activate/deactivate s
     const state = plugin.serialize();
     assert.ok(state && state.settings, 'serialize() should return serialized settings');
 
+    // Change a setting and verify it persists via serialize/deserialize
+    const managerBefore = plugin.getManager();
+    assert.ok(managerBefore);
+    managerBefore.updateSettings({ preferredProvider: 'bergamot', autoFallback: false });
+    const serialized = plugin.serialize();
+    assert.equal(serialized.settings.preferredProvider, 'bergamot', 'serialize should reflect updated settings');
+    assert.equal(serialized.settings.autoFallback, false, 'serialize should reflect updated settings');
+
     plugin.deactivate();
     assert.equal(plugin.getManager(), null, 'Manager should be null after deactivation');
     assert.equal(unregisteredMessageViewExtensions.length, 1, 'message body formatter should be unregistered');
     assert.deepEqual(unregisteredTabs, ['Offline Translator'], 'settings tab should be unregistered');
+
+    // Simulate restart: deserialize() called before activate()
+    unregisteredMessageViewExtensions.length = 0;
+    unregisteredTabs.length = 0;
+    registeredComponents.length = 0;
+    registeredMessageViewExtensions.length = 0;
+    registeredTabs.length = 0;
+
+    plugin.deserialize(serialized);
+    plugin.activate();
+    const managerAfter = plugin.getManager();
+    assert.ok(managerAfter, 'Manager should be restored after deserialize + activate');
+    assert.equal(managerAfter.getSettings().preferredProvider, 'bergamot', 'deserialize should restore preferredProvider');
+    assert.equal(managerAfter.getSettings().autoFallback, false, 'deserialize should restore autoFallback');
+
+    plugin.deactivate();
   } finally {
     if (originalRegistry === undefined) {
       delete globalWithRegistry.ComponentRegistry;

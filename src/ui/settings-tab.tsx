@@ -549,3 +549,5 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     </div>
   );
 };
+
+OfflineTranslatorSettingsTab.displayName = 'OfflineTranslatorSettingsTab'

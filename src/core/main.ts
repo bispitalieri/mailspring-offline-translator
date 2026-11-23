@@ -8,129 +8,50 @@
  * - Registers settings through PreferencesUIStore
  * - Compiles to executable CommonJS in lib/main.js
  */
-
+import * as MailspringExports from "mailspring-exports";
 import { TranslationManager } from './translation-manager';
-import { MessageTranslatorHeader, ComposerTranslatorButton, OfflineTranslatorSettingsTab,
-  clearMessageTranslationPresentations,
-  OfflineTranslatorMessageViewExtension,
-} from '../ui';
+import { MessageTranslatorHeader, ComposerTranslatorButton, OfflineTranslatorSettingsTab, clearMessageTranslationPresentations, OfflineTranslatorMessageViewExtension } from '../ui';
 import {ProcessManager} from '../utils';
 
+const {ComponentRegistry, ExtensionRegistry} = MailspringExports;
+const PreferencesUIStore = (MailspringExports as any).PreferencesUIStore;
+let preferencesTab: any;
+
 let managerInstance: TranslationManager | null = null;
-let preferencesTabId: string | null = null;
 
 const PREFERENCES_TAB_ID = 'Offline Translator';
 
-function getComponentRegistry(): any {
-  try {
-    // Standard Mailspring Electron runtime export
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mailspringExports = require('mailspring-exports');
-    if (mailspringExports && mailspringExports.ComponentRegistry) {
-      return mailspringExports.ComponentRegistry;
-    }
-  } catch {
-    // Fallback to global symbol if exposed on window / global
-  }
-
-  if (typeof (globalThis as any).ComponentRegistry !== 'undefined') {
-    return (globalThis as any).ComponentRegistry;
-  }
-
-  return null;
-}
-
-function getMessageViewRegistry(): any {
-  try {
-    const mailspringExports = require('mailspring-exports');
-    if (mailspringExports?.ExtensionRegistry?.MessageView) {
-      return mailspringExports.ExtensionRegistry.MessageView;
-    }
-  } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'MODULE_NOT_FOUND' &&
-      'message' in error &&
-      typeof error.message === 'string' &&
-      error.message.includes("Cannot find module 'mailspring-exports'")
-    ) {
-      // Allow the global fallback used by the Mailspring test harness.
-    } else {
-      throw error;
-    }
-  }
-
-  return (globalThis as any).ExtensionRegistry?.MessageView ?? null;
-}
-
-function getPreferencesUIStore(): any {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mailspringExports = require('mailspring-exports');
-    if (mailspringExports?.PreferencesUIStore) {
-      return mailspringExports.PreferencesUIStore;
-    }
-  } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'MODULE_NOT_FOUND' &&
-      'message' in error &&
-      typeof error.message === 'string' &&
-      error.message.includes("Cannot find module 'mailspring-exports'")
-    ) {
-      // Allow the global fallback used by the Mailspring test harness.
-    } else {
-      throw error;
-    }
-  }
-
-  return (globalThis as any).PreferencesUIStore ?? null;
-}
-
 export function activate(): void {
-  // Initialize singleton TranslationManager
-  managerInstance = new TranslationManager();
+  // Initialize singleton TranslationManager only if not already restored by deserialize()
+  managerInstance ??= new TranslationManager();
   (globalThis as any).__mailspring_offline_translator_manager = managerInstance;
 
-  const registry = getComponentRegistry();
-  const messageViewRegistry = getMessageViewRegistry();
-  if (messageViewRegistry && typeof messageViewRegistry.register === 'function') {
-    messageViewRegistry.register(OfflineTranslatorMessageViewExtension);
-  }
-  if (registry && typeof registry.register === 'function') {
-    MessageTranslatorHeader.displayName = 'MessageTranslatorHeader';
-    ComposerTranslatorButton.displayName = 'ComposerTranslatorButton';
-    OfflineTranslatorSettingsTab.displayName = 'OfflineTranslatorSettingsTab';
+  try {
+    ExtensionRegistry.MessageView.register(OfflineTranslatorMessageViewExtension);
 
     // 1. Message Body Header extension (non-destructive translation bar)
-    registry.register(MessageTranslatorHeader, {
+    ComponentRegistry.register(MessageTranslatorHeader, {
       role: 'message:BodyHeader',
     });
 
     // 2. Composer Action Bar button (safe preview & confirmation)
-    registry.register(ComposerTranslatorButton, {
+    ComponentRegistry.register(ComposerTranslatorButton, {
       role: 'Composer:ActionButton',
     });
 
     console.info('[Mailspring Offline Translator] Registered message and composer components.');
-  } else {
-    console.warn('[Mailspring Offline Translator] ComponentRegistry not detected (running outside Mailspring).');
+  } catch (e) {
+    console.warn('[Mailspring Offline Translator] ComponentRegistry not detected (running outside Mailspring). ', e);
   }
 
-  const preferencesUIStore = getPreferencesUIStore();
-  if (preferencesUIStore?.TabItem && typeof preferencesUIStore.registerPreferencesTab === 'function') {
-    OfflineTranslatorSettingsTab.displayName = 'OfflineTranslatorSettingsTab';
-    const tab = new preferencesUIStore.TabItem({
+  if (PreferencesUIStore) {
+    preferencesTab = new PreferencesUIStore.TabItem({
       tabId: PREFERENCES_TAB_ID,
       displayName: 'Offline Translator',
       componentClassFn: () => OfflineTranslatorSettingsTab,
+      order: 100,
     });
-    preferencesUIStore.registerPreferencesTab(tab);
-    preferencesTabId = PREFERENCES_TAB_ID;
+    PreferencesUIStore.registerPreferencesTab(preferencesTab);
     console.info(`[Mailspring Offline Translator] Registered Preferences tab "${PREFERENCES_TAB_ID}".`);
   } else {
     console.warn('[Mailspring Offline Translator] PreferencesUIStore not detected; settings tab was not registered.');
@@ -140,28 +61,14 @@ export function activate(): void {
 }
 
 export function deactivate(): void {
-  const registry = getComponentRegistry();
-  if (registry && typeof registry.unregister === 'function') {
-    try {
-      registry.unregister(MessageTranslatorHeader);
-      registry.unregister(ComposerTranslatorButton);
-      registry.unregister(OfflineTranslatorSettingsTab);
-    } catch (err) {
-      console.warn('[Mailspring Offline Translator] Error unregistering components:', err);
-    }
-  }
-  const messageViewRegistry = getMessageViewRegistry();
-  if (messageViewRegistry && typeof messageViewRegistry.unregister === 'function') {
-    messageViewRegistry.unregister(OfflineTranslatorMessageViewExtension);
-  }
+  ComponentRegistry.unregister(MessageTranslatorHeader);
+  ComponentRegistry.unregister(ComposerTranslatorButton);
+  ExtensionRegistry.MessageView.unregister(OfflineTranslatorMessageViewExtension);
+
   clearMessageTranslationPresentations();
 
-  if (preferencesTabId) {
-    const preferencesUIStore = getPreferencesUIStore();
-    if (typeof preferencesUIStore?.unregisterPreferencesTab === 'function') {
-      preferencesUIStore.unregisterPreferencesTab(preferencesTabId);
-    }
-    preferencesTabId = null;
+  if (PreferencesUIStore && preferencesTab) {
+    PreferencesUIStore.unregisterPreferencesTab(preferencesTab);
   }
 
   if (managerInstance) {
@@ -182,6 +89,17 @@ export function serialize(): Record<string, any> {
     };
   }
   return {};
+}
+
+export function deserialize(data: Record<string, any>): void {
+  if (data?.settings) {
+    if (managerInstance) {
+      managerInstance.updateSettings(data.settings);
+    } else {
+      managerInstance = new TranslationManager(data.settings);
+      (globalThis as any).__mailspring_offline_translator_manager = managerInstance;
+    }
+  }
 }
 
 export function getManager(): TranslationManager | null {
