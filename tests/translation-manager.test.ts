@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TranslationManager } from '../lib/translation-manager';
-import { ITranslationProvider } from '../lib/providers/provider-interface';
-import { LanguageDetectionResult, LanguagePair, ProviderInfo, TranslationRequest, TranslationResult } from '../lib/types';
+import { TranslationManager } from '../src/core';
+import { ITranslationProvider } from '../src/providers/provider-interface';
+import { LanguageDetectionResult, LanguagePair, ProviderInfo, TranslationRequest, TranslationResult } from '../src/types';
 
 // Mock Provider for testing orchestrator fallback & resolution
 class MockProvider implements ITranslationProvider {

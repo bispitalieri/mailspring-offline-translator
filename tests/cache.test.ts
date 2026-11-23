@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TranslationCache, computeSha256 } from '../lib/cache';
+import { TranslationCache, computeSha256 } from '../src/utils';
 
 test('SHA-256 generates deterministic 64-character hex digests', () => {
   const hash1 = computeSha256('Hello world');

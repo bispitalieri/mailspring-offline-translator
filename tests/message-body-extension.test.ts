@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import mod from '../lib/ui/message-body-extension.js';
-
-const { formatWithPresentation, htmlToPlaintext } = mod;
+import { formatWithPresentation, htmlToPlaintext } from '../src/ui/message-body-extension';
 
 interface MessagePresentation {
   originalBody: string;

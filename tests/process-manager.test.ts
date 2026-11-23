@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ProcessManager } from '../lib/process-manager';
+import { ProcessManager } from '../src/utils';
 
 test('ProcessManager stores models inside the plugin directory in Electron renderer', async () => {
   const pluginDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'mailspring-plugin-'));

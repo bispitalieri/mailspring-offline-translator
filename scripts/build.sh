@@ -17,7 +17,7 @@ npx esbuild $(find src -name '*.ts' -o -name '*.tsx') \
   --platform=node \
   --target=node24 \
   --format=cjs \
-  --jsx=react
+  --jsx=transform
 
 # 2. Verify lib/core/main.js compiled entry point
 if [[ ! -f "lib/core/main.js" ]]; then

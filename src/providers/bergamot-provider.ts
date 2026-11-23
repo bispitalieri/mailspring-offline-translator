@@ -740,17 +740,50 @@ export class BergamotTranslationProvider implements ITranslationProvider {
 
   async getSupportedLanguages(): Promise<LanguagePair[]> {
     const installed = await this.getInstalledPairs();
-    return installed.map((pair) => {
+    const result = new Map<string, LanguagePair>();
+
+    // Add direct pairs
+    for (const pair of installed) {
       const [from, to] = pair.split('-');
-      return {
+      const key = `${from}-${to}`;
+      result.set(key, {
         source: from,
         target: to,
         sourceName: this.languageNames.get(from) || from,
         targetName: this.languageNames.get(to) || to,
         installed: true,
         providerId: 'bergamot',
-      };
-    });
+      });
+    }
+
+    // Add pivot pairs (via English) that are not already in the list
+    const pivot = 'en';
+    const sourcesToPivot = installed
+      .filter((p) => p.endsWith(`-${pivot}`))
+      .map((p) => p.split('-')[0]);
+    const pivotToTargets = installed
+      .filter((p) => p.startsWith(`${pivot}-`))
+      .map((p) => p.split('-')[1]);
+
+    for (const src of sourcesToPivot) {
+      for (const tgt of pivotToTargets) {
+        // Skip if source or target is already English (those are direct pairs)
+        if (src === pivot || tgt === pivot) continue;
+        const key = `${src}-${tgt}`;
+        if (!result.has(key)) {
+          result.set(key, {
+            source: src,
+            target: tgt,
+            sourceName: this.languageNames.get(src) || src,
+            targetName: this.languageNames.get(tgt) || tgt,
+            installed: true,
+            providerId: 'bergamot',
+          });
+        }
+      }
+    }
+
+    return Array.from(result.values());
   }
 
   async detectLanguage(text: string): Promise<LanguageDetectionResult> {
@@ -779,7 +812,90 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   async canTranslate(sourceLang: string, targetLang: string): Promise<boolean> {
     if (sourceLang === 'auto') return true; // detection happens upstream
     const pair = `${sourceLang}-${targetLang}`;
-    return this.downloader.isModelCached(pair);
+    
+    // Check for direct model
+    if (await this.downloader.isModelCached(pair)) {
+      return true;
+    }
+    
+    // Check for pivot path via English (e.g., cz -> en -> it)
+    return this.canPivotTranslate(sourceLang, targetLang);
+  }
+  
+  /**
+   * Checks whether a pivot translation path exists via English.
+   * For example, if cz -> it is not available but cz -> en and en -> it are,
+   * we can translate through English as an intermediate language.
+   */
+  private async canPivotTranslate(sourceLang: string, targetLang: string): Promise<boolean> {
+    if (sourceLang === 'en' || targetLang === 'en') {
+      return false; // No pivot needed if one side is already English
+    }
+    const pivot = 'en';
+    const firstHalf = `${sourceLang}-${pivot}`;
+    const secondHalf = `${pivot}-${targetLang}`;
+    return await this.downloader.isModelCached(firstHalf) && await this.downloader.isModelCached(secondHalf);
+  }
+
+  /**
+   * Checks whether a pivot translation path can be downloaded via English.
+   * Returns the two pairs needed for the pivot path, or null if not available.
+   */
+  private async getPivotDownloadPath(sourceLang: string, targetLang: string): Promise<{
+    firstHalf: string;
+    secondHalf: string;
+  } | null> {
+    if (sourceLang === 'en' || targetLang === 'en') {
+      return null; // No pivot needed if one side is already English
+    }
+    const pivot = 'en';
+    const firstHalf = `${sourceLang}-${pivot}`;
+    const secondHalf = `${pivot}-${targetLang}`;
+    
+    // Check if both pivot models are available in the registry
+    const availablePairs = await this.downloader.listPairs();
+    if (availablePairs.includes(firstHalf) && availablePairs.includes(secondHalf)) {
+      return { firstHalf, secondHalf };
+    }
+    return null;
+  }
+  
+  /**
+   * Determines the translation path for a given language pair.
+   * Returns the direct pair if available, otherwise a pivot path via English,
+   * or null if no path exists.
+   */
+  private async getTranslationPath(sourceLang: string, targetLang: string): Promise<{
+    direct: boolean;
+    steps: Array<{ from: string; to: string }>;
+  } | null> {
+    const directPair = `${sourceLang}-${targetLang}`;
+    
+    // Check for direct model
+    if (await this.downloader.isModelCached(directPair)) {
+      return {
+        direct: true,
+        steps: [{ from: sourceLang, to: targetLang }],
+      };
+    }
+    
+    // Check for pivot path via English
+    if (sourceLang !== 'en' && targetLang !== 'en') {
+      const pivot = 'en';
+      const firstHalf = `${sourceLang}-${pivot}`;
+      const secondHalf = `${pivot}-${targetLang}`;
+      if (await this.downloader.isModelCached(firstHalf) && await this.downloader.isModelCached(secondHalf)) {
+        return {
+          direct: false,
+          steps: [
+            { from: sourceLang, to: pivot },
+            { from: pivot, to: targetLang },
+          ],
+        };
+      }
+    }
+    
+    return null;
   }
 
   async translate(request: TranslationRequest): Promise<TranslationResult> {
@@ -794,28 +910,58 @@ export class BergamotTranslationProvider implements ITranslationProvider {
     sourceLang = normalizeLanguageTag(sourceLang);
     const targetLang = normalizeLanguageTag(request.targetLang);
 
+    // Determine translation path (direct or via pivot language)
+    const path = await this.getTranslationPath(sourceLang, targetLang);
+
+    if (!path) {
+      throw new Error(
+        `No translation model available for ${sourceLang} -> ${targetLang}. ` +
+        `Install the required model(s) from Offline Models in Preferences.`
+      );
+    }
+
     // Ensure the translator is loaded
     await this.ensureTranslator();
 
-    // Translate using Bergamot
-    const response = await this.translator.translate({
-      from: sourceLang,
-      to: targetLang,
-      text: request.text,
-      html: request.isHtml ?? false,
-      qualityScores: false,
-    });
+    let translatedText: string;
+
+    if (path.direct) {
+      // Direct translation: source -> target
+      const response = await this.translator.translate({
+        from: sourceLang,
+        to: targetLang,
+        text: request.text,
+        html: request.isHtml ?? false,
+        qualityScores: false,
+      });
+      translatedText = response.target.text;
+    } else {
+      // Pivot translation: source -> en -> target
+      let intermediateText = request.text;
+
+      for (const step of path.steps) {
+        const response = await this.translator.translate({
+          from: step.from,
+          to: step.to,
+          text: intermediateText,
+          html: request.isHtml ?? false,
+          qualityScores: false,
+        });
+        intermediateText = response.target.text;
+      }
+      translatedText = intermediateText;
+    }
 
     // Reset the unload timer
     this.resetUnloadTimer();
 
     return {
       id: request.id,
-      translatedText: response.target.text,
+      translatedText,
       detectedSourceLang: sourceLang,
       targetLang,
       providerUsed: 'bergamot',
-      providerName: 'Bergamot WASM',
+      providerName: path.direct ? 'Bergamot WASM' : 'Bergamot WASM (via English)',
       fromCache: false,
       durationMs: Date.now() - startTime,
     };
@@ -839,10 +985,13 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   async listInstallableModels(): Promise<ModelPackage[]> {
     const pairs = await this.downloader.listPairs();
     const installed = await this.getInstalledPairs();
+    const result = new Map<string, ModelPackage>();
 
-    return pairs.map((pair) => {
+    // Add direct pairs
+    for (const pair of pairs) {
       const [from, to] = pair.split('-');
-      return {
+      const key = `${from}-${to}`;
+      result.set(key, {
         fromCode: from,
         fromName: this.languageNames.get(from) || from,
         toCode: to,
@@ -851,8 +1000,44 @@ export class BergamotTranslationProvider implements ITranslationProvider {
         sizeMB: 0, // Unknown until downloaded
         isInstalled: installed.includes(pair),
         provider: 'bergamot',
-      };
-    });
+      });
+    }
+
+    // Add pivot pairs (via English) that are not already in the list
+    const pivot = 'en';
+    const sourcesToPivot = pairs
+      .filter((p) => p.endsWith(`-${pivot}`))
+      .map((p) => p.split('-')[0]);
+    const pivotToTargets = pairs
+      .filter((p) => p.startsWith(`${pivot}-`))
+      .map((p) => p.split('-')[1]);
+
+    for (const src of sourcesToPivot) {
+      for (const tgt of pivotToTargets) {
+        // Skip if source or target is already English (those are direct pairs)
+        if (src === pivot || tgt === pivot) continue;
+        const key = `${src}-${tgt}`;
+        if (!result.has(key)) {
+          // Check if both pivot models are installed
+          const firstHalf = `${src}-${pivot}`;
+          const secondHalf = `${pivot}-${tgt}`;
+          const isInstalled = installed.includes(firstHalf) && installed.includes(secondHalf);
+          
+          result.set(key, {
+            fromCode: src,
+            fromName: this.languageNames.get(src) || src,
+            toCode: tgt,
+            toName: this.languageNames.get(tgt) || tgt,
+            packageVersion: 'base (via English)',
+            sizeMB: 0,
+            isInstalled,
+            provider: 'bergamot',
+          });
+        }
+      }
+    }
+
+    return Array.from(result.values());
   }
 
   async installModel(
@@ -863,8 +1048,50 @@ export class BergamotTranslationProvider implements ITranslationProvider {
     const pair = `${fromLang}-${toLang}`;
 
     try {
-      // Download all model files
-      await this.downloader.downloadModel(pair, onProgress);
+      // Check if the direct model exists in the registry
+      const availablePairs = await this.downloader.listPairs();
+      const hasDirectModel = availablePairs.includes(pair);
+
+      if (hasDirectModel) {
+        // Download the direct model
+        await this.downloader.downloadModel(pair, onProgress);
+      } else {
+        // Check if a pivot path is available
+        const pivotPath = await this.getPivotDownloadPath(fromLang, toLang);
+        if (pivotPath) {
+          // Download both pivot models
+          const { firstHalf, secondHalf } = pivotPath;
+          
+          if (onProgress) {
+            onProgress(0, `Modello diretto ${pair} non disponibile, download tramite inglese...`);
+          }
+
+          // Download first half: source -> en
+          if (onProgress) {
+            onProgress(0, `Download modello ${firstHalf}...`);
+          }
+          await this.downloader.downloadModel(firstHalf, (pct, msg) => {
+            if (onProgress) {
+              onProgress(Math.round(pct / 2), msg);
+            }
+          });
+
+          // Download second half: en -> target
+          if (onProgress) {
+            onProgress(50, `Download modello ${secondHalf}...`);
+          }
+          await this.downloader.downloadModel(secondHalf, (pct, msg) => {
+            if (onProgress) {
+              onProgress(50 + Math.round(pct / 2), msg);
+            }
+          });
+        } else {
+          throw new Error(
+            `Nessun modello disponibile per ${pair}. ` +
+            `Né il modello diretto né un percorso di traduzione tramite inglese sono disponibili.`
+          );
+        }
+      }
 
       // Clear the backing's registry cache so it picks up the new model
       await this.backing.terminate();

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { JsonLinesIpcClient } from '../lib/ipc-helper';
+import { JsonLinesIpcClient } from '../src/utils';
 import { EventEmitter } from 'node:events';
 
 test('JsonLinesIpcClient handles chunked stdin/stdout lines correctly', async () => {

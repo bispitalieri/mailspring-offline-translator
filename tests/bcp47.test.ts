@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeLanguageTag, getLanguageDisplayName } from '../lib/bcp47';
+import { normalizeLanguageTag, getLanguageDisplayName } from '../src/utils';
 
 test('BCP-47 normalizes region subtags to 2-letter ISO codes', () => {
   assert.equal(normalizeLanguageTag('it-IT'), 'it');

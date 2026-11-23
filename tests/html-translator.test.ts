@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HtmlTranslator } from '../lib/utils/html-translator.js';
+import { HtmlTranslator } from '../src/utils';
 
 test('HTML segmentation preserves tags, links, and formatting', async () => {
   const html = '<p>Hello <strong>World</strong>! Click <a href="https://example.com/login?id=42">here</a>.</p>';
