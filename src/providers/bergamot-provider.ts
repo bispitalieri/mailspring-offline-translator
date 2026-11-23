@@ -1,5 +1,5 @@
 /**
- * Bergamot WASM Translation Provider
+ * Mz/Translate WASM Translation Provider
  *
  * Integrates the @browsermt/bergamot-translator WebAssembly engine with
  * Mozilla's Firefox Translations models (hosted on GitHub).
@@ -30,11 +30,11 @@ interface LanguageDetector {
 }
 
 // ---------------------------------------------------------------------------
-// Re-export types from the Bergamot package (ESM) so TypeScript can resolve
+// Re-export types from the Mz/Translate package (ESM) so TypeScript can resolve
 // them without a separate @types package.
 // ---------------------------------------------------------------------------
 
-/** Translation request passed to Bergamot's translate() method. */
+/** Translation request passed to Mz/Translate's translate() method. */
 interface BergamotRequest {
   from: string;
   to: string;
@@ -44,7 +44,7 @@ interface BergamotRequest {
   priority?: number;
 }
 
-/** Translation response returned by Bergamot. */
+/** Translation response returned by Mz/Translate. */
 interface BergamotResponse {
   request: BergamotRequest;
   target: { text: string };
@@ -73,7 +73,7 @@ interface BergamotModelBuffers {
 }
 
 // ---------------------------------------------------------------------------
-// Lazy-loaded Bergamot module (ESM dynamic import).
+// Lazy-loaded Mz/Translate module (ESM dynamic import).
 // ---------------------------------------------------------------------------
 
 interface BergamotModule {
@@ -142,7 +142,7 @@ const DEFAULT_UNLOAD_TIMEOUT_MS = 120_000; // 2 minutes
 const MAX_WORKERS = 1;
 
 // ---------------------------------------------------------------------------
-// BergamotModelDownloader
+// Mz/TranslateModelDownloader
 //
 // Handles downloading and caching of Mozilla model files from GitHub.
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ export class LocalTranslatorBacking {
   }
 
   /**
-   * Lazy-loads the Bergamot ESM module.
+   * Lazy-loads the Mz/Translate ESM module.
    */
   private async ensureModule(): Promise<BergamotModule> {
     if (!this.bergamotModule) {
@@ -507,7 +507,7 @@ export class LocalTranslatorBacking {
   }
 
   /**
-   * Builds a Bergamot-compatible registry from locally cached models.
+   * Builds a Mz/Translate-compatible registry from locally cached models.
    */
   private async buildLocalRegistry(): Promise<BergamotModelEntry[]> {
     const fs = this.nodeRequire<typeof import('node:fs')>('fs');
@@ -671,7 +671,7 @@ export class LocalTranslatorBacking {
 }
 
 // ---------------------------------------------------------------------------
-// BergamotTranslationProvider
+// Mz/TranslateTranslationProvider
 //
 // Main provider class that implements ITranslationProvider.
 // Manages the WASM translator lifecycle, model downloads, and memory cleanup.
@@ -706,34 +706,34 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   getInfo(): ProviderInfo {
     return {
       id: 'bergamot',
-      name: 'Bergamot WASM (Mozilla Translations)',
+      name: 'Mz/Translate WASM (Mozilla Translations)',
       version: '0.4.9',
       platform: ['darwin', 'win32', 'linux'],
       description: this.isAvailableCache
         ? 'WebAssembly translation engine ready. Installed models run offline.'
-        : 'Mozilla Bergamot WASM engine for offline neural translation.',
+        : 'Mozilla Mz/Translate WASM engine for offline neural translation.',
       requiresNPU: false,
       isAvailable: this.isAvailableCache === true,
       unavailabilityReason: this.isAvailableCache
         ? undefined
         : this.availabilityError ??
-          'Download a Bergamot model from Offline Models in Preferences.',
+          'Download a Mz/Translate model from Offline Models in Preferences.',
       isStandaloneRuntime: true,
     };
   }
 
   async isAvailable(): Promise<boolean> {
     try {
-      // Check if Bergamot module can be loaded
+      // Check if Mz/Translate module can be loaded
       await this.ensureBergamotModule();
       const installed = await this.getInstalledPairs();
       this.isAvailableCache = installed.length > 0;
       this.availabilityError = this.isAvailableCache
         ? null
-        : 'No Bergamot models are installed. Download a model from Offline Models in Preferences.';
+        : 'No Mz/Translate models are installed. Download a model from Offline Models in Preferences.';
     } catch (error) {
       this.isAvailableCache = false;
-      this.availabilityError = `Bergamot WASM is unavailable: ${error instanceof Error ? error.message : String(error)}`;
+      this.availabilityError = `Mz/Translate WASM is unavailable: ${error instanceof Error ? error.message : String(error)}`;
     }
     return this.isAvailableCache;
   }
@@ -968,7 +968,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   }
 
   cancel(_requestId: string): void {
-    // Bergamot doesn't support per-request cancellation easily.
+    // Mz/Translate doesn't support per-request cancellation easily.
     // We could abort the current pending request if using LatencyOptimisedTranslator.
   }
 
@@ -1151,7 +1151,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   // ------------------------------------------------------------------
 
   /**
-   * Ensures the Bergamot ESM module is loaded.
+   * Ensures the Mz/Translate ESM module is loaded.
    */
   private async ensureBergamotModule(): Promise<BergamotModule> {
     try {

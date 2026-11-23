@@ -5,9 +5,11 @@ Private, offline email translation for [Mailspring](https://getmailspring.com/).
 ## Translation and models
 
 - On macOS 15+, the plugin can use Apple's Translation framework.
-- Cross-platform translation is provided by Bergamot (Mozilla).
+- Cross-platform translation is provided by Mz/Translate (Mozilla Translations).
 - Language packages are downloaded only after the user confirms the download in Preferences.
 - Translation inference runs entirely offline.
+- **Pivot translation**: When a direct model for a language pair is not available (e.g., Spanish → Italian), Mz/Translate automatically translates through English as an intermediate step (Spanish → English → Italian).
+- **Automatic pivot model download**: When installing a language pair without a direct model, the plugin automatically downloads both intermediate models needed for pivot translation (e.g., Spanish → English and English → Italian).
 
 ## Build and install
 

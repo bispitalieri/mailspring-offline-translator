@@ -74,7 +74,7 @@ test('TranslationManager prioritizes provider and falls back when unsupported', 
 
   const manager = new TranslationManager({ preferredProvider: 'auto', autoFallback: true }, customProviders);
 
-  // Translating to 'it' (unsupported by Apple) should fallback to Bergamot
+  // Translating to 'it' (unsupported by Apple) should fallback to Mz/Translate
   const res = await manager.translate({
     id: 'req1',
     text: 'Hello friend',

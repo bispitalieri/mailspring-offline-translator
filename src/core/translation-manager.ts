@@ -2,7 +2,7 @@
  * Mailspring Offline Translation Manager
  * 
  * Orchestrator handling:
- * - Operating-system aware provider resolution priority (macOS: Apple -> Bergamot; Windows: Windows AI -> Bergamot; Linux: Bergamot)
+ * - Operating-system aware provider resolution priority (macOS: Apple -> Mz/Translate; Windows: Windows AI -> Mz/Translate; Linux: Mz/Translate)
  * - Automatic graceful fallback on provider failure or missing language pairs
  * - In-flight duplicate request deduplication
  * - SHA-256 local translation caching
@@ -129,13 +129,13 @@ export class TranslationManager {
   }
 
   // -----------------------------------------------------------------------
-  // Bergamot model management
+  // Mz/Translate model management
   // -----------------------------------------------------------------------
 
   public async getInstalledBergamotModels(): Promise<LanguagePair[]> {
     const bergamot = this.providers.get('bergamot');
     if (!bergamot) {
-      throw new Error('Bergamot provider is not registered.');
+      throw new Error('Mz/Translate provider is not registered.');
     }
     return bergamot.getSupportedLanguages();
   }
@@ -143,7 +143,7 @@ export class TranslationManager {
   public async getInstallableBergamotModels(): Promise<ModelPackage[]> {
     const bergamot = this.providers.get('bergamot');
     if (!bergamot?.listInstallableModels) {
-      throw new Error('Bergamot model catalog is not available.');
+      throw new Error('Mz/Translate model catalog is not available.');
     }
     return bergamot.listInstallableModels();
   }
@@ -155,7 +155,7 @@ export class TranslationManager {
   ): Promise<boolean> {
     const bergamot = this.providers.get('bergamot');
     if (!bergamot?.installModel) {
-      throw new Error('Bergamot model installation is not supported by this provider.');
+      throw new Error('Mz/Translate model installation is not supported by this provider.');
     }
     return bergamot.installModel(fromLang, toLang, onProgress);
   }
@@ -163,7 +163,7 @@ export class TranslationManager {
   public async removeBergamotModel(fromLang: string, toLang: string): Promise<boolean> {
     const bergamot = this.providers.get('bergamot');
     if (!bergamot?.removeModel) {
-      throw new Error('Bergamot model removal is not supported by this provider.');
+      throw new Error('Mz/Translate model removal is not supported by this provider.');
     }
     return bergamot.removeModel(fromLang, toLang);
   }
@@ -182,7 +182,7 @@ export class TranslationManager {
   }
 
   /**
-   * Checks whether the Bergamot model for the given language pair is installed.
+   * Checks whether the Mz/Translate model for the given language pair is installed.
    * If not installed, it automatically downloads it.
    * 
    * @param sourceLang Normalized source language
@@ -211,7 +211,7 @@ export class TranslationManager {
     if (bergamot.installModel) {
       try {
         if (onProgress) {
-          onProgress(0, `Downloading Bergamot model ${pair}...`);
+          onProgress(0, `Downloading Mz/Translate model ${pair}...`);
         }
         const success = await bergamot.installModel(sourceLang, targetLang, onProgress);
         if (success) {
@@ -233,15 +233,15 @@ export class TranslationManager {
   }
 
   /**
-   * Asynchronously determines whether automatic Bergamot model download should be performed.
+   * Asynchronously determines whether automatic Mz/Translate model download should be performed.
    * 
-   * Bergamot should only be downloaded as a last resort when no other provider
+   * Mz/Translate should only be downloaded as a last resort when no other provider
    * (Apple, Edge) is available and can translate the language pair.
    * 
    * 3 cases:
-   * 1. Bergamot provider explicitly selected → always download
-   * 2. Non-Bergamot provider explicitly selected (e.g. Apple, Edge) → never download Bergamot
-   * 3. Auto provider mode → download Bergamot only if no non-Bergamot provider can translate
+   * 1. Mz/Translate provider explicitly selected → always download
+   * 2. Non-Mz/Translate provider explicitly selected (e.g. Apple, Edge) → never download Mz/Translate
+   * 3. Auto provider mode → download Mz/Translate only if no non-Mz/Translate provider can translate
    * 
    * @param sourceLang Normalized source language
    * @param targetLang Normalized target language
@@ -251,40 +251,40 @@ export class TranslationManager {
     const preferred = this.settings.preferredProvider;
     const allowFallback = this.settings.autoFallback;
 
-    // Case 1: Bergamot provider explicitly selected → always download
+    // Case 1: Mz/Translate provider explicitly selected → always download
     if (preferred === 'bergamot') {
       return true;
     }
 
-    // Case 2: user explicitly selected a non-Bergamot provider (e.g. Apple, Edge)
-    // → never auto-download Bergamot, respect the user's choice
+    // Case 2: user explicitly selected a non-Mz/Translate provider (e.g. Apple, Edge)
+    // → never auto-download Mz/Translate, respect the user's choice
     if (preferred !== 'auto') {
       return false;
     }
 
     // Case 3: auto provider mode
-    // Only download Bergamot if no non-Bergamot provider is available and can translate
+    // Only download Mz/Translate if no non-Mz/Translate provider is available and can translate
     const priority = this.getPriorityList();
 
-    // Check if any non-Bergamot provider can handle this translation
+    // Check if any non-Mz/Translate provider can handle this translation
     for (const pid of priority) {
-      if (pid === 'bergamot') continue; // Skip Bergamot — we're checking if we NEED it
+      if (pid === 'bergamot') continue; // Skip Mz/Translate — we're checking if we NEED it
       const p = this.providers.get(pid);
       if (!p) continue;
 
-      // If a non-Bergamot provider is available and can translate, don't download Bergamot
+      // If a non-Mz/Translate provider is available and can translate, don't download Mz/Translate
       const avail = await p.isAvailable();
       if (avail) {
         const can = await p.canTranslate(sourceLang, targetLang);
         if (can) {
-          // A non-Bergamot provider can handle this — no need to download Bergamot
+          // A non-Mz/Translate provider can handle this — no need to download Mz/Translate
           return false;
         }
       }
     }
 
-    // No non-Bergamot provider can translate — Bergamot is the last resort
-    // Only download if Bergamot is in the priority list and fallback is allowed
+    // No non-Mz/Translate provider can translate — Mz/Translate is the last resort
+    // Only download if Mz/Translate is in the priority list and fallback is allowed
     return allowFallback && priority.includes('bergamot');
   }
 
@@ -293,8 +293,8 @@ export class TranslationManager {
    * 
    * If preferredProvider is not 'auto':
    *   - If autoFallback is true: try the preferred provider, then fall back to others in priority order.
-   *     However, if the preferred provider is a non-Bergamot provider (e.g. Apple), never fall back
-   *     to Bergamot — respect the user's explicit choice.
+   *     However, if the preferred provider is a non-Mz/Translate provider (e.g. Apple), never fall back
+   *     to Mz/Translate — respect the user's explicit choice.
    *   - If autoFallback is false: use only the preferred provider without fallback.
    * If preferredProvider is 'auto':
    *   - If autoFallback is true: use the platform priority list, trying all providers.
@@ -324,13 +324,13 @@ export class TranslationManager {
       if (result) return result;
 
       // If the preferred provider doesn't work and fallback is enabled, try others.
-      // However, if the user explicitly selected a non-Bergamot provider (e.g. Apple),
-      // do not fall back to Bergamot — respect the user's choice.
+      // However, if the user explicitly selected a non-Mz/Translate provider (e.g. Apple),
+      // do not fall back to Mz/Translate — respect the user's choice.
       if (allowFallback) {
         const priority = this.getPriorityList();
         for (const pid of priority) {
           if (pid === preferred) continue; // Skip the already-tried provider
-          // If the user selected a non-Bergamot provider, skip Bergamot fallback
+          // If the user selected a non-Mz/Translate provider, skip Mz/Translate fallback
           if (preferred !== 'bergamot' && pid === 'bergamot') continue;
           const result = await tryProvider(pid);
           if (result) return result;
@@ -467,7 +467,7 @@ export class TranslationManager {
     let provider = await this.resolveProvider(sourceLang, targetLang);
 
     // If no provider is available and auto-download is enabled,
-    // try to download the Bergamot model and re-resolve the provider
+    // try to download the Mz/Translate model and re-resolve the provider
     if (!provider && await this.shouldAutoDownloadBergamot(sourceLang, targetLang)) {
       const bergamot = this.providers.get('bergamot');
       if (bergamot) {

@@ -3,7 +3,7 @@
  * 
  * Implements a native Mailspring PreferencesUIStore tab for:
  * - Default target language (System locale or custom BCP-47)
- * - Preferred Provider selection (Auto, Apple, Windows AI, Bergamot)
+ * - Preferred Provider selection (Auto, Apple, Windows AI, Mz/Translate)
  * - Automatic Fallback switch
  * - Display Mode (Inline, Split/Side-by-side)
  * - Exclusions (Signatures, Quoted replies, Code blocks)
@@ -260,10 +260,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </p>
               <div className="offline-translator-provider-grid">
                 {[
-                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Bergamot; Windows: Edge Translator → Bergamot' },
+                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Mz/Translate; Windows: Edge Translator → Mz/Translate' },
                   { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
                   { id: 'edge-translator', label: 'Edge Translator API', desc: 'Windows 10/11: built-in Edge/Chromium Translator API with on-device neural models' },
-                  { id: 'bergamot', label: 'Bergamot WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
+                  { id: 'bergamot', label: 'Mz/Translate WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
                 ].map((p) => (
                   <label
                     key={p.id}
@@ -400,10 +400,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           <div className="offline-translator-card offline-translator-models-header">
             <div>
               <h4 className="offline-translator-card-title">
-                Bergamot WASM Translation Models
+                Mz/Translate WASM Translation Models
               </h4>
               <p className="offline-translator-card-desc">
-                Bergamot from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.
+                Mz/Translate from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.
               </p>
             </div>
             <div className="offline-translator-models-disk">
