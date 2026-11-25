@@ -46,7 +46,7 @@ class ModelDownloadConfirmationWindow {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
     const windowWidth = 450;
-    const windowHeight = 620;
+    const windowHeight = 520;
     const x = Math.round(screenWidth / 2 - windowWidth / 2);
     const y = Math.round(screenHeight / 2 - windowHeight / 2);
 
@@ -119,7 +119,7 @@ class ModelDownloadConfirmationWindow {
   }
 
   private getHTML(model: ModelPackage): string {
-    const sizeDisplay = model.sizeMB > 0 ? `~${model.sizeMB} MB` : 'Not provided';
+    const sizeDisplay = model.sizeMB > 0 ? `${model.sizeMB.toFixed(1)} MB` : 'Not provided';
 
     return `
 <!DOCTYPE html>
@@ -273,7 +273,7 @@ class ModelDownloadConfirmationWindow {
 
   <div class="description">
     Once downloaded, this model will be stored locally and will perform translations
-    completely offline without network access. The model runs using the native CTranslate2 runtime.
+    completely offline without network access.
   </div>
 
   <div class="buttons">

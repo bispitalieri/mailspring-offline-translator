@@ -1,11 +1,11 @@
 /**
- * Mz/Translate WASM Translation Provider
+ * Mozilla/Translations WASM Translation Provider
  *
  * Integrates the @browsermt/bergamot-translator WebAssembly engine with
- * Mozilla's Firefox Translations models (hosted on GitHub).
+ * Mozilla's Translations models (hosted on Google Cloud Storage).
  *
  * Features:
- *  - On-demand model download from Mozilla's firefox-translations-models repository
+ *  - On-demand model download from Mozilla's Translations model registry
  *  - Local model caching in the plugin's data/models/bergamot directory
  *  - HTML-aware translation via the native `html: true` option
  *  - Automatic memory release after inactivity timeout (keeps RAM < 300 MB)
@@ -30,11 +30,11 @@ interface LanguageDetector {
 }
 
 // ---------------------------------------------------------------------------
-// Re-export types from the Mz/Translate package (ESM) so TypeScript can resolve
+// Re-export types from the Mozilla/Translations package (ESM) so TypeScript can resolve
 // them without a separate @types package.
 // ---------------------------------------------------------------------------
 
-/** Translation request passed to Mz/Translate's translate() method. */
+/** Translation request passed to Mozilla/Translations's translate() method. */
 interface BergamotRequest {
   from: string;
   to: string;
@@ -44,7 +44,7 @@ interface BergamotRequest {
   priority?: number;
 }
 
-/** Translation response returned by Mz/Translate. */
+/** Translation response returned by Mozilla/Translations. */
 interface BergamotResponse {
   request: BergamotRequest;
   target: { text: string };
@@ -73,7 +73,7 @@ interface BergamotModelBuffers {
 }
 
 // ---------------------------------------------------------------------------
-// Lazy-loaded Mz/Translate module (ESM dynamic import).
+// Lazy-loaded Mozilla/Translations module (ESM dynamic import).
 // ---------------------------------------------------------------------------
 
 interface BergamotModule {
@@ -101,7 +101,7 @@ interface BergamotModule {
 }
 
 // ---------------------------------------------------------------------------
-// Mozilla Firefox Translations model metadata (from GitHub).
+// Mozilla Translations model metadata (from the GCS registry).
 // ---------------------------------------------------------------------------
 
 interface MozillaModelMetadata {
@@ -122,12 +122,37 @@ interface MozillaModelMetadata {
   };
 }
 
+interface MozillaRegistryModel {
+  architecture: string;
+  releaseStatus?: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  files: {
+    model: { path: string; uncompressedSize?: number; uncompressedHash?: string };
+    vocab: { path: string };
+    lexicalShortlist: { path: string };
+  };
+  modelStatistics?: {
+    parameters: number;
+    encoderParameters: number;
+    decoderParameters: number;
+  };
+}
+
+interface MozillaModelRegistry {
+  baseUrl: string;
+  models: Record<string, MozillaRegistryModel[]>;
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 /** Google Cloud Storage base URL for Mozilla Translations models. */
 const GCS_BASE = 'https://storage.googleapis.com/moz-fx-translations-data--303e-prod-translations-data';
+const GCS_BUCKET = 'moz-fx-translations-data--303e-prod-translations-data';
+const GCS_BATCH_URL = 'https://storage.googleapis.com/batch/storage/v1';
+const MODEL_SIZE_BATCH_LIMIT = 100;
 
 /** Model registry JSON – lists all available language pairs and their metadata. */
 const MODEL_REGISTRY_URL = `${GCS_BASE}/db/models.json`;
@@ -142,13 +167,15 @@ const DEFAULT_UNLOAD_TIMEOUT_MS = 120_000; // 2 minutes
 const MAX_WORKERS = 1;
 
 // ---------------------------------------------------------------------------
-// Mz/TranslateModelDownloader
+// Mozilla/TranslationsModelDownloader
 //
-// Handles downloading and caching of Mozilla model files from GitHub.
+// Handles downloading and caching of Mozilla model files from GCS.
 // ---------------------------------------------------------------------------
 
 export class BergamotModelDownloader {
   private readonly modelsDir: string;
+  private registryPromise: Promise<MozillaModelRegistry> | null = null;
+  private modelSizesPromise: Promise<Map<string, number>> | null = null;
 
   constructor(modelsDir?: string) {
     this.modelsDir = modelsDir ?? ProcessManager.getModelsDirectory();
@@ -167,13 +194,25 @@ export class BergamotModelDownloader {
    * Fetches the list of available language pairs from Mozilla's GCS model registry.
    */
   async listPairs(): Promise<string[]> {
-    const resp = await fetch(MODEL_REGISTRY_URL);
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
-    }
-    const registry = (await resp.json()) as { models: Record<string, unknown[]> };
+    const registry = await this.fetchRegistry();
     // Keys in the models object are the language pairs (e.g., "en-it", "fr-en")
     return Object.keys(registry.models ?? {});
+  }
+
+  private fetchRegistry(): Promise<MozillaModelRegistry> {
+    if (!this.registryPromise) {
+      this.registryPromise = (async () => {
+        const resp = await fetch(MODEL_REGISTRY_URL);
+        if (!resp.ok) {
+          throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
+        }
+        return (await resp.json()) as MozillaModelRegistry;
+      })().catch((error: unknown) => {
+        this.registryPromise = null;
+        throw error;
+      });
+    }
+    return this.registryPromise;
   }
 
   /**
@@ -181,29 +220,7 @@ export class BergamotModelDownloader {
    * Prefers models with releaseStatus "Release" and base-memory architecture.
    */
   async fetchMetadata(pair: string): Promise<MozillaModelMetadata> {
-    const resp = await fetch(MODEL_REGISTRY_URL);
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
-    }
-    const registry = (await resp.json()) as {
-      baseUrl: string;
-      models: Record<string, Array<{
-        architecture: string;
-        releaseStatus?: string;
-        sourceLanguage: string;
-        targetLanguage: string;
-        files: {
-          model: { path: string; uncompressedSize?: number; uncompressedHash?: string };
-          vocab: { path: string };
-          lexicalShortlist: { path: string };
-        };
-        modelStatistics?: {
-          parameters: number;
-          encoderParameters: number;
-          decoderParameters: number;
-        };
-      }>>;
-    };
+    const registry = await this.fetchRegistry();
 
     const models = registry.models?.[pair];
     if (!models || models.length === 0) {
@@ -214,7 +231,7 @@ export class BergamotModelDownloader {
     }
 
     // Prefer model with releaseStatus "Release" and preferred architecture
-    let selected = models.find(m => m.releaseStatus === 'Release' && m.architecture === PREFERRED_ARCHITECTURE)
+    const selected = models.find(m => m.releaseStatus === 'Release' && m.architecture === PREFERRED_ARCHITECTURE)
       ?? models.find(m => m.releaseStatus === 'Release')
       ?? models.find(m => m.architecture === PREFERRED_ARCHITECTURE)
       ?? models[0];
@@ -235,6 +252,147 @@ export class BergamotModelDownloader {
       },
       modelStatistics: selected.modelStatistics,
     };
+  }
+
+  async getModelSizes(pairs: string[]): Promise<Map<string, number>> {
+    if (!this.modelSizesPromise) {
+      this.modelSizesPromise = this.fetchModelSizes(pairs).catch(() => new Map<string, number>());
+    }
+    return this.modelSizesPromise;
+  }
+
+  private async fetchModelSizes(pairs: string[]): Promise<Map<string, number>> {
+    const metadata = await Promise.all(pairs.map(async (pair) => {
+      try {
+        return { pair, model: await this.fetchMetadata(pair) };
+      } catch {
+        return null;
+      }
+    }));
+    const validMetadata = metadata.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+    const paths = Array.from(new Set(validMetadata.flatMap(({ model }) => [
+      model.files.model.path,
+      model.files.vocab.path,
+      model.files.lexicalShortlist.path,
+    ])));
+    const fileSizes = await this.fetchFileSizes(paths);
+    const modelSizes = new Map<string, number>();
+
+    for (const entry of validMetadata) {
+      const sizes = [
+        fileSizes.get(entry.model.files.model.path),
+        fileSizes.get(entry.model.files.vocab.path),
+        fileSizes.get(entry.model.files.lexicalShortlist.path),
+      ];
+      if (sizes.every((size): size is number => size !== undefined && size > 0)) {
+        modelSizes.set(entry.pair, sizes.reduce((total, size) => total + size, 0));
+      }
+    }
+
+    return modelSizes;
+  }
+
+  private async fetchFileSizes(paths: string[]): Promise<Map<string, number>> {
+    const fileSizes = new Map<string, number>();
+    const batches: string[][] = [];
+
+    for (let start = 0; start < paths.length; start += MODEL_SIZE_BATCH_LIMIT) {
+      batches.push(paths.slice(start, start + MODEL_SIZE_BATCH_LIMIT));
+    }
+
+    const batchResults = await Promise.all(batches.map(async (batchPaths, batchIndex) => {
+      const batchSizes = new Map<string, number>();
+      const boundary = `bergamot_model_sizes_${Date.now()}_${batchIndex}`;
+      const requests = batchPaths.map((path, index) =>
+        `--${boundary}\r\n` +
+        'Content-Type: application/http\r\n' +
+        `Content-ID: <item-${index}>\r\n\r\n` +
+        `GET /storage/v1/b/${GCS_BUCKET}/o/${encodeURIComponent(path)}?fields=size HTTP/1.1\r\n` +
+        'Accept: application/json\r\n\r\n'
+      ).join('');
+
+      try {
+        const response = await this.postMetadataBatch(`${requests}--${boundary}--\r\n`, boundary);
+        if (response.statusCode < 200 || response.statusCode >= 300) return batchSizes;
+
+        const responseBoundary = response.contentType?.match(/boundary="?([^";]+)"?/i)?.[1];
+        if (!responseBoundary) return batchSizes;
+
+        for (const part of response.body.split(`--${responseBoundary}`)) {
+          const contentId = part.match(/Content-ID:\s*<response-item-(\d+)>/i);
+          const httpStart = part.search(/HTTP\/1\.1\s+\d{3}/);
+          if (!contentId || httpStart < 0) continue;
+
+          const httpResponse = part.slice(httpStart);
+          const status = httpResponse.match(/^HTTP\/1\.1\s+(\d{3})/);
+          const bodySeparator = httpResponse.match(/\r?\n\r?\n/);
+          if (status?.[1] !== '200' || !bodySeparator || bodySeparator.index === undefined) continue;
+
+          const index = Number(contentId[1]);
+          const path = batchPaths[index];
+          if (!path) continue;
+
+          try {
+            const bodyStart = bodySeparator.index + bodySeparator[0].length;
+            const metadata = JSON.parse(httpResponse.slice(bodyStart).trim()) as { size?: string };
+            const size = Number(metadata.size);
+            if (Number.isSafeInteger(size) && size > 0) {
+              batchSizes.set(path, size);
+            }
+          } catch {
+            // Ignore malformed metadata; the UI will show "Not provided".
+          }
+        }
+      } catch {
+        // Size checks are optional and must not prevent model listing.
+      }
+      return batchSizes;
+    }));
+
+    for (const batchSizes of batchResults) {
+      for (const [path, size] of batchSizes) {
+        fileSizes.set(path, size);
+      }
+    }
+    return fileSizes;
+  }
+
+  private postMetadataBatch(body: string, boundary: string): Promise<{
+    statusCode: number;
+    contentType?: string;
+    body: string;
+  }> {
+    const https = this.nodeRequire<typeof import('node:https')>('https');
+
+    return new Promise((resolve, reject) => {
+      const request = https.request({
+        hostname: 'storage.googleapis.com',
+        path: '/batch/storage/v1',
+        method: 'POST',
+        headers: {
+          'Content-Type': `multipart/mixed; boundary=${boundary}`,
+          'Content-Length': Buffer.byteLength(body),
+        },
+      }, (response) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        response.on('error', reject);
+        response.on('end', () => {
+          const contentType = response.headers['content-type'];
+          resolve({
+            statusCode: response.statusCode ?? 0,
+            contentType: Array.isArray(contentType) ? contentType[0] : contentType,
+            body: Buffer.concat(chunks).toString('utf8'),
+          });
+        });
+      });
+
+      request.setTimeout(15_000, () => request.destroy(new Error('Model metadata request timed out.')));
+      request.on('error', reject);
+      request.end(body);
+    });
   }
 
   /**
@@ -460,7 +618,7 @@ export class LocalTranslatorBacking {
   }
 
   /**
-   * Lazy-loads the Mz/Translate ESM module.
+   * Lazy-loads the Mozilla/Translations ESM module.
    */
   private async ensureModule(): Promise<BergamotModule> {
     if (!this.bergamotModule) {
@@ -507,7 +665,7 @@ export class LocalTranslatorBacking {
   }
 
   /**
-   * Builds a Mz/Translate-compatible registry from locally cached models.
+   * Builds a Mozilla/Translations-compatible registry from locally cached models.
    */
   private async buildLocalRegistry(): Promise<BergamotModelEntry[]> {
     const fs = this.nodeRequire<typeof import('node:fs')>('fs');
@@ -671,7 +829,7 @@ export class LocalTranslatorBacking {
 }
 
 // ---------------------------------------------------------------------------
-// Mz/TranslateTranslationProvider
+// Mozilla/TranslationsTranslationProvider
 //
 // Main provider class that implements ITranslationProvider.
 // Manages the WASM translator lifecycle, model downloads, and memory cleanup.
@@ -706,34 +864,34 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   getInfo(): ProviderInfo {
     return {
       id: 'bergamot',
-      name: 'Mz/Translate WASM (Mozilla Translations)',
+      name: 'Mozilla/Translations WASM (Mozilla Translations)',
       version: '0.4.9',
       platform: ['darwin', 'win32', 'linux'],
       description: this.isAvailableCache
         ? 'WebAssembly translation engine ready. Installed models run offline.'
-        : 'Mozilla Mz/Translate WASM engine for offline neural translation.',
+        : 'Mozilla Mozilla/Translations WASM engine for offline neural translation.',
       requiresNPU: false,
       isAvailable: this.isAvailableCache === true,
       unavailabilityReason: this.isAvailableCache
         ? undefined
         : this.availabilityError ??
-          'Download a Mz/Translate model from Offline Models in Preferences.',
+          'Download a Mozilla/Translations model from Offline Models in Preferences.',
       isStandaloneRuntime: true,
     };
   }
 
   async isAvailable(): Promise<boolean> {
     try {
-      // Check if Mz/Translate module can be loaded
+      // Check if Mozilla/Translations module can be loaded
       await this.ensureBergamotModule();
       const installed = await this.getInstalledPairs();
       this.isAvailableCache = installed.length > 0;
       this.availabilityError = this.isAvailableCache
         ? null
-        : 'No Mz/Translate models are installed. Download a model from Offline Models in Preferences.';
+        : 'No Mozilla/Translations models are installed. Download a model from Offline Models in Preferences.';
     } catch (error) {
       this.isAvailableCache = false;
-      this.availabilityError = `Mz/Translate WASM is unavailable: ${error instanceof Error ? error.message : String(error)}`;
+      this.availabilityError = `Mozilla/Translations WASM is unavailable: ${error instanceof Error ? error.message : String(error)}`;
     }
     return this.isAvailableCache;
   }
@@ -968,7 +1126,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   }
 
   cancel(_requestId: string): void {
-    // Mz/Translate doesn't support per-request cancellation easily.
+    // Mozilla/Translations doesn't support per-request cancellation easily.
     // We could abort the current pending request if using LatencyOptimisedTranslator.
   }
 
@@ -984,7 +1142,10 @@ export class BergamotTranslationProvider implements ITranslationProvider {
 
   async listInstallableModels(): Promise<ModelPackage[]> {
     const pairs = await this.downloader.listPairs();
-    const installed = await this.getInstalledPairs();
+    const [installed, modelSizes] = await Promise.all([
+      this.getInstalledPairs(),
+      this.downloader.getModelSizes(pairs),
+    ]);
     const result = new Map<string, ModelPackage>();
 
     // Add direct pairs
@@ -997,7 +1158,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
         toCode: to,
         toName: this.languageNames.get(to) || to,
         packageVersion: 'base',
-        sizeMB: 0, // Unknown until downloaded
+        sizeMB: Number(((modelSizes.get(pair) ?? 0) / (1024 * 1024)).toFixed(1)),
         isInstalled: installed.includes(pair),
         provider: 'bergamot',
       });
@@ -1022,6 +1183,11 @@ export class BergamotTranslationProvider implements ITranslationProvider {
           const firstHalf = `${src}-${pivot}`;
           const secondHalf = `${pivot}-${tgt}`;
           const isInstalled = installed.includes(firstHalf) && installed.includes(secondHalf);
+          const firstHalfSize = modelSizes.get(firstHalf);
+          const secondHalfSize = modelSizes.get(secondHalf);
+          const sizeMB = firstHalfSize !== undefined && secondHalfSize !== undefined
+            ? Number(((firstHalfSize + secondHalfSize) / (1024 * 1024)).toFixed(1))
+            : 0;
           
           result.set(key, {
             fromCode: src,
@@ -1029,7 +1195,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
             toCode: tgt,
             toName: this.languageNames.get(tgt) || tgt,
             packageVersion: 'base (via English)',
-            sizeMB: 0,
+            sizeMB,
             isInstalled,
             provider: 'bergamot',
           });
@@ -1151,7 +1317,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   // ------------------------------------------------------------------
 
   /**
-   * Ensures the Mz/Translate ESM module is loaded.
+   * Ensures the Mozilla/Translations ESM module is loaded.
    */
   private async ensureBergamotModule(): Promise<BergamotModule> {
     try {

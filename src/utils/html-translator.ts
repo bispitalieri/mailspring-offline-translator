@@ -23,7 +23,7 @@ export class HtmlTranslator {
 
   /**
    * Pre-processes HTML to exclude signatures, quotes, code blocks, and script/style
-   * without segmenting text nodes. The result is HTML ready to be passed to Mz/Translate
+   * without segmenting text nodes. The result is HTML ready to be passed to Mozilla/Translations
    * with `html: true` which will natively preserve the structure.
    */
   public static preprocessHtml(

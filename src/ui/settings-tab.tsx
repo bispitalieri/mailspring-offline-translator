@@ -3,7 +3,7 @@
  * 
  * Implements a native Mailspring PreferencesUIStore tab for:
  * - Default target language (System locale or custom BCP-47)
- * - Preferred Provider selection (Auto, Apple, Windows AI, Mz/Translate)
+ * - Preferred Provider selection (Auto, Apple, Windows AI, Mozilla/Translations)
  * - Automatic Fallback switch
  * - Display Mode (Inline, Split/Side-by-side)
  * - Exclusions (Signatures, Quoted replies, Code blocks)
@@ -260,10 +260,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </p>
               <div className="offline-translator-provider-grid">
                 {[
-                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Mz/Translate; Windows: Edge Translator → Mz/Translate' },
+                  { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Mozilla/Translations; Windows: Edge Translator → Mozilla/Translations' },
                   { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
                   { id: 'edge-translator', label: 'Edge Translator API', desc: 'Windows 10/11: built-in Edge/Chromium Translator API with on-device neural models' },
-                  { id: 'bergamot', label: 'Mz/Translate WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
+                  { id: 'bergamot', label: 'Mozilla/Translations WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
                 ].map((p) => (
                   <label
                     key={p.id}
@@ -400,10 +400,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           <div className="offline-translator-card offline-translator-models-header">
             <div>
               <h4 className="offline-translator-card-title">
-                Mz/Translate WASM Translation Models
+                Mozilla/Translations WASM Translation Models
               </h4>
               <p className="offline-translator-card-desc">
-                Mz/Translate from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.
+                Mozilla/Translations from Mozilla Firefox Translations runs entirely in WebAssembly. Each language pair downloads its own model (~15-40 MB). Auto-unloads after 2 minutes of inactivity to keep RAM usage low.
               </p>
             </div>
             <div className="offline-translator-models-disk">
@@ -467,7 +467,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                         {m.fromName} ({m.fromCode}) → {m.toName} ({m.toCode})
                       </td>
                       <td className="offline-translator-table-engine">{m.provider}</td>
-                      <td className="offline-translator-table-size">{m.sizeMB ? `${m.sizeMB} MB` : 'Not provided'}</td>
+                      <td className="offline-translator-table-size">{m.sizeMB ? `${m.sizeMB.toFixed(1)} MB` : 'Not provided'}</td>
                       <td className="offline-translator-table-status">
                         {m.isInstalled ? (
                           <span className="offline-translator-badge offline-translator-badge-success">

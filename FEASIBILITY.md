@@ -47,10 +47,10 @@ Mailspring is an Electron application. Because Electron cannot directly link aga
 
 ---
 
-## 3. Cross-Platform: Mz/Translate
+## 3. Cross-Platform: Mozilla/Translations
 
 ### Technical Architecture
-- **Mz/Translate**: Mozilla Firefox Translations WebAssembly engine with per-pair models.
+- **Mozilla/Translations**: Mozilla Firefox Translations WebAssembly engine with per-pair models.
 - **Platform Support**: Cross-platform support via WebAssembly.
 - **Network Requirement**: Strictly offline during inference. Package downloads require explicit user approval in the UI.
 
@@ -64,9 +64,9 @@ Mailspring is an Electron application. Because Electron cannot directly link aga
 
 | OS / Platform | Native Engine | Cross-Platform Fallback | Offline Guarantee | User Consent Required for Models |
 |---|---|---|---|---|
-| **macOS 15+ (Sequoia)** | Apple Translation (`TranslationSession`) | Mz/Translate | 100% On-Device | Yes |
-| **macOS 14- (Sonoma & earlier)** | Unavailable (OS limitation) | Mz/Translate | 100% On-Device | Yes |
-| **Windows 11 (Copilot+ NPU)** | Evaluated (Phi Silica SLM unfeasible for MT) | Mz/Translate | 100% On-Device | Yes |
-| **Windows 10 / 11 (Standard PC)** | Unavailable (No offline API) | Mz/Translate | 100% On-Device | Yes |
-| **Linux x64** | N/A | Mz/Translate | 100% On-Device | Yes |
-| **Linux ARM64** | N/A | Mz/Translate (WASM) | 100% On-Device | Yes |
+| **macOS 15+ (Sequoia)** | Apple Translation (`TranslationSession`) | Mozilla/Translations | 100% On-Device | Yes |
+| **macOS 14- (Sonoma & earlier)** | Unavailable (OS limitation) | Mozilla/Translations | 100% On-Device | Yes |
+| **Windows 11 (Copilot+ NPU)** | Evaluated (Phi Silica SLM unfeasible for MT) | Mozilla/Translations | 100% On-Device | Yes |
+| **Windows 10 / 11 (Standard PC)** | Unavailable (No offline API) | Mozilla/Translations | 100% On-Device | Yes |
+| **Linux x64** | N/A | Mozilla/Translations | 100% On-Device | Yes |
+| **Linux ARM64** | N/A | Mozilla/Translations (WASM) | 100% On-Device | Yes |

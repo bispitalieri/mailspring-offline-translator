@@ -10,8 +10,9 @@
 
 import React, { useState, useEffect } from '../utils/react-runtime';
 import { TranslationManager } from '../core';
-import { TranslationResult, ProviderId } from '../types';
-import { getLanguageDisplayName, getCommonLanguages } from '../utils';
+import { TranslationResult, ProviderId, ModelPackage } from '../types';
+import { getLanguageDisplayName, getCommonLanguages, normalizeLanguageTag } from '../utils';
+import { confirmationWindow } from './confirmation-window';
 import {
   getMessageTranslationSource,
   htmlToPlaintext,
@@ -71,6 +72,46 @@ export const MessageTranslatorHeader: React.FC<{
 
   const languages = getCommonLanguages();
 
+  const confirmModelDownloadIfNeeded = async (text: string, target: string): Promise<boolean> => {
+    const settings = manager.getSettings();
+    const mayAutoDownload = settings.preferredProvider === 'bergamot' ||
+      (settings.preferredProvider === 'auto' && settings.autoFallback);
+    if (!mayAutoDownload) return true;
+
+    const detectedSource = sourceLang === 'auto'
+      ? (await manager.detectLanguage(text)).language
+      : sourceLang;
+    const normalizedSource = normalizeLanguageTag(detectedSource);
+    const normalizedTarget = normalizeLanguageTag(target);
+
+    if (normalizedSource === normalizedTarget || await manager.resolveProvider(normalizedSource, normalizedTarget)) {
+      return true;
+    }
+
+    const installableModels = await manager.getInstallableBergamotModels();
+    const model = installableModels.find((candidate: ModelPackage) =>
+      normalizeLanguageTag(candidate.fromCode) === normalizedSource &&
+      normalizeLanguageTag(candidate.toCode) === normalizedTarget
+    );
+    if (!model) {
+      throw new Error(`No downloadable model is available for ${normalizedSource} → ${normalizedTarget}.`);
+    }
+
+    let confirmed = false;
+    await confirmationWindow.show({
+      model,
+      onConfirm: () => {
+        confirmed = true;
+      },
+      onCancel: () => {},
+    });
+
+    if (!confirmed) {
+      setError('Model download cancelled.');
+    }
+    return confirmed;
+  };
+
   const handleTranslate = async (overrideTarget?: string, overrideProvider?: ProviderId) => {
     setIsTranslating(true);
     setError(null);
@@ -84,6 +125,8 @@ export const MessageTranslatorHeader: React.FC<{
       const textToTranslate = source.isPlaintext
         ? htmlToPlaintext(source.body)
         : source.body;
+
+      if (!await confirmModelDownloadIfNeeded(textToTranslate, tgt)) return;
 
       const res = await manager.translate({
         id: `msg_${message.id}_${Date.now()}`,
