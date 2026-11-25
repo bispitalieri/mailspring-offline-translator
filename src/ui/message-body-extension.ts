@@ -82,8 +82,8 @@ function escapeHtml(text: string): string {
 function asPlaintextHtml(text: string): string {
   // Convert newlines to <br> to preserve line breaks in HTML
   const escaped = escapeHtml(text);
-  const withBreaks = escaped.replace(/\n/g, '<br>\n');
-  return `<pre style="white-space: pre-wrap; overflow-wrap: anywhere">${withBreaks}</pre>`;
+  const withBreaks = escaped.replace(/\n/g, '<br>');
+  return `<div style="overflow-wrap: anywhere">${withBreaks}</div>`;
 }
 
 function formatSplitView(original: string, translated: string): string {
@@ -106,10 +106,21 @@ function isPluginGeneratedHtml(body: string): boolean {
     return true;
   }
   // The plaintext wrapper HTML contains our specific style
-  if (body.includes('white-space: pre-wrap; overflow-wrap: anywhere')) {
+  if (body.includes('overflow-wrap: anywhere')) {
     return true;
   }
   return false;
+}
+
+function getInboxBodyPlaintext(body: string): boolean | undefined {
+  const wrapperId = body.match(/<div\b[^>]*\bid\s*=\s*["']?(inbox-(?:plain|html)-wrapper)["']?[^>]*>/i)?.[1];
+  if (wrapperId === 'inbox-plain-wrapper') {
+    return true;
+  }
+  if (wrapperId === 'inbox-html-wrapper') {
+    return false;
+  }
+  return undefined;
 }
 
 // Detects whether a body is corrupted by double escaping (e.g., &lt;pre&gt; instead of <pre>)
@@ -171,14 +182,18 @@ export function formatMessageBody(message: RenderableMessage): void {
         const restored = restoreCorruptedBody(message.body);
         originalBodies.set(message.id, restored);
         message.body = restored;
-        // If the original body contained inbox-plain-wrapper, it's a plaintext message
-        if (restored.includes('inbox-plain-wrapper')) {
-          message.plaintext = true;
-          plaintextMessages.add(message.id);
-        }
       } else {
         // Original body - register it
         originalBodies.set(message.id, message.body);
+      }
+    }
+    const bodyType = getInboxBodyPlaintext(originalBodies.get(message.id) ?? message.body);
+    if (bodyType !== undefined) {
+      message.plaintext = bodyType;
+      if (bodyType) {
+        plaintextMessages.add(message.id);
+      } else {
+        plaintextMessages.delete(message.id);
       }
     }
     // If we have a saved original body and the current body differs, restore it.

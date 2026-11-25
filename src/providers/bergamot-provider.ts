@@ -23,6 +23,9 @@ import {
 } from '../types';
 import { normalizeLanguageTag } from '../utils/bcp47';
 import { ProcessManager } from '../utils/process-manager';
+import LanguageDetect from "languagedetect";
+import fs from 'node:fs';
+import path from 'node:path'
 
 /** Language detection via languagedetect. */
 interface LanguageDetector {
@@ -865,7 +868,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
   getInfo(): ProviderInfo {
     return {
       id: 'bergamot',
-      name: 'Mozilla/Translations WASM (Mozilla Translations)',
+      name: 'Mozilla/Translations',
       version: '0.4.9',
       platform: ['darwin', 'win32', 'linux'],
       description: this.isAvailableCache
@@ -950,7 +953,8 @@ export class BergamotTranslationProvider implements ITranslationProvider {
 
     try {
       if (!this.languageDetector) {
-        const LanguageDetect = this.nodeRequire<new () => LanguageDetector>('languagedetect');
+        // const LanguageDetect = this.nodeRequire<new () => LanguageDetector>('languagedetect');
+        // const LanguageDetect: LanguageDetector = require('languagedetect');
         this.languageDetector = new LanguageDetect();
         this.languageDetector.setLanguageType('iso2');
       }
@@ -1120,7 +1124,7 @@ export class BergamotTranslationProvider implements ITranslationProvider {
       detectedSourceLang: sourceLang,
       targetLang,
       providerUsed: 'bergamot',
-      providerName: path.direct ? 'Bergamot WASM' : 'Bergamot WASM (via English)',
+      providerName: path.direct ? 'Mozilla/Translations' : 'Mozilla/Translations (via English)',
       fromCache: false,
       durationMs: Date.now() - startTime,
     };
@@ -1378,8 +1382,8 @@ export class BergamotTranslationProvider implements ITranslationProvider {
    * Gets the list of installed language pairs.
    */
   private async getInstalledPairs(): Promise<string[]> {
-    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
-    const p = this.nodeRequire<typeof import('node:path')>('path');
+    // const fs = this.nodeRequire<typeof import('node:fs')>('fs');
+    const p = path;
 
     const bergamotDir = p.join(this.downloader['modelsDir'], 'bergamot');
     if (!fs.existsSync(bergamotDir)) return [];

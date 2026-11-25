@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatWithPresentation, htmlToPlaintext } from '../src/ui/message-body-extension';
+import {
+  formatMessageBody,
+  formatWithPresentation,
+  getMessageTranslationSource,
+  htmlToPlaintext,
+} from '../src/ui/message-body-extension';
 
 interface MessagePresentation {
   originalBody: string;
@@ -45,8 +50,24 @@ test('message body formatter escapes plaintext before rendering', () => {
   );
   assert.equal(
     message.body,
-    '<pre style="white-space: pre-wrap; overflow-wrap: anywhere">Ciao &lt;mondo&gt;</pre>'
+    '<div style="white-space: pre-wrap; overflow-wrap: anywhere">Ciao &lt;mondo&gt;</div>'
   );
+});
+
+test('message body formatter identifies plaintext from the inbox wrapper', () => {
+  const message = { id: 'plain-wrapper', body: '<div id="inbox-plain-wrapper">Hello</div>' };
+  formatMessageBody(message);
+  assert.equal(getMessageTranslationSource(message).isPlaintext, true);
+});
+
+test('message body formatter identifies HTML from the inbox wrapper', () => {
+  const message = {
+    id: 'html-wrapper',
+    body: '<div id="inbox-html-wrapper"><p>Hello</p></div>',
+    plaintext: true,
+  };
+  formatMessageBody(message);
+  assert.equal(getMessageTranslationSource(message).isPlaintext, false);
 });
 
 test('htmlToPlaintext converts br tags to newlines', () => {
@@ -80,4 +101,20 @@ test('asPlaintextHtml preserves newlines as br tags', () => {
   assert.ok(message.body.includes('<br>'));
   assert.ok(message.body.includes('Line 1'));
   assert.ok(message.body.includes('Line 2'));
+});
+
+test('asPlaintextHtml does not duplicate line breaks after br tags', () => {
+  const message = { id: 'plain-single-newlines', body: 'Line 1\nLine 2' };
+  formatWithPresentation(
+    message,
+    presentation({
+      originalBody: 'Line 1\nLine 2',
+      translatedBody: 'Line 1\nLine 2',
+      isPlaintext: true,
+    })
+  );
+  assert.equal(
+    message.body,
+    '<div style="white-space: pre-wrap; overflow-wrap: anywhere">Line 1<br>Line 2</div>'
+  );
 });

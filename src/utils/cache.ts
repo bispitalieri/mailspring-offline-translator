@@ -95,11 +95,13 @@ export class TranslationCache {
 
     this.evictIfNeeded(sizeBytes);
 
+    const provider = providerId === 'bergamot' ? 'Mozilla/Translations' : providerId;
+
     const entry: CacheEntry = {
       hash: key,
       sourceLang,
       targetLang,
-      providerId,
+      providerId: provider,
       translatedText,
       createdAt: now,
       lastAccessedAt: now,
