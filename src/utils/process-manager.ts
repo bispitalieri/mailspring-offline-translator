@@ -3,30 +3,17 @@
  */
 
 import { SupportedPlatform } from '../types';
+import f from 'node:fs';
+import p from 'node:path';
+import cp from 'node:child_process';
 
 export interface ChildProcessLike {
   stdin?: any;
   stdout?: any;
   stderr?: any;
   on?: (event: string, listener: (...args: any[]) => void) => any;
-  kill?: (signal?: string) => boolean;
+  kill?: (signal?: NodeJS.Signals | number) => boolean;
   killed?: boolean;
-}
-
-function getNativeNodeModule<T>(moduleName: string): T | null {
-  try {
-    const fn = typeof globalThis !== 'undefined' && (globalThis as any).require
-      ? (globalThis as any).require
-      : typeof require !== 'undefined'
-      ? require
-      : null;
-    if (typeof fn === 'function') {
-      return fn(moduleName) as T;
-    }
-  } catch {
-    // Non-node runtime
-  }
-  return null;
 }
 
 export interface ExecutableResolution {
@@ -43,7 +30,6 @@ export interface ExecutableResolution {
 export class ProcessManager {
   private static activeProcesses: Set<ChildProcessLike> = new Set();
   private static pluginRootDir: string = (() => {
-    const p = getNativeNodeModule<any>('path');
     if (typeof __dirname !== 'undefined' && p) {
       return p.resolve(__dirname, '../..');
     }
@@ -51,22 +37,9 @@ export class ProcessManager {
   })();
 
   /**
-   * Sets or overrides the root plugin directory.
-   */
-  public static setPluginRootDir(dir: string): void {
-    this.pluginRootDir = dir;
-  }
-
-  public static getPluginRootDir(): string {
-    return this.pluginRootDir;
-  }
-
-  /**
    * Returns the offline model directory inside the plugin installation.
    */
   public static getModelsDirectory(): string {
-    const p = getNativeNodeModule<any>('path');
-    const f = getNativeNodeModule<any>('fs');
     const modelsDir = p
       ? p.join(this.pluginRootDir, 'data', 'models')
       : `${this.pluginRootDir}/data/models`;
@@ -87,9 +60,6 @@ export class ProcessManager {
     const arch = typeof process !== 'undefined' ? process.arch : 'x64';
 
     const helperName = 'edge-translator.js';
-
-    const p = getNativeNodeModule<any>('path');
-    const f = getNativeNodeModule<any>('fs');
 
     const helperPath = p ? p.join(base, 'helpers', 'windows', helperName) : `${base}/helpers/windows/${helperName}`;
 
@@ -130,9 +100,6 @@ export class ProcessManager {
     const arch = typeof process !== 'undefined' ? process.arch : 'arm64';
 
     const binaryName = 'apple-translator-darwin-universal';
-
-    const p = getNativeNodeModule<any>('path');
-    const f = getNativeNodeModule<any>('fs');
 
     const binaryPath = p ? p.join(base, 'helpers', 'apple', 'bin', binaryName) : `${base}/helpers/apple/bin/${binaryName}`;
     const legacyPath = p ? p.join(base, 'helpers', 'apple', 'TranslationHelper') : `${base}/helpers/apple/TranslationHelper`;
@@ -193,7 +160,6 @@ export class ProcessManager {
       ...envOverrides,
     };
 
-    const cp = getNativeNodeModule<any>('child_process');
     if (!cp || typeof cp.spawn !== 'function') {
       // Browser environment mock
       return {

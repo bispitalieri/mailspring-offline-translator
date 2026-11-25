@@ -25,7 +25,10 @@ import { normalizeLanguageTag } from '../utils/bcp47';
 import { ProcessManager } from '../utils/process-manager';
 import LanguageDetect from "languagedetect";
 import fs from 'node:fs';
-import path from 'node:path'
+import p from 'node:path'
+import zlib from 'node:zlib';
+import fsPromises from 'node:fs/promises';
+import https from 'node:https';
 
 /** Language detection via languagedetect. */
 interface LanguageDetector {
@@ -171,7 +174,7 @@ const DEFAULT_UNLOAD_TIMEOUT_MS = 120_000; // 2 minutes
 const MAX_WORKERS = 1;
 
 // ---------------------------------------------------------------------------
-// Mozilla/TranslationsModelDownloader
+// Mozilla/Translations Model Downloader
 //
 // Handles downloading and caching of Mozilla model files from GCS.
 // ---------------------------------------------------------------------------
@@ -190,7 +193,6 @@ export class BergamotModelDownloader {
    * `data/models/bergamot/en-it/`.
    */
   pairDir(pair: string): string {
-    const p = this.nodeRequire<typeof import('node:path')>('path');
     return p.join(this.modelsDir, 'bergamot', pair);
   }
 
@@ -204,18 +206,16 @@ export class BergamotModelDownloader {
   }
 
   private fetchRegistry(): Promise<MozillaModelRegistry> {
-    if (!this.registryPromise) {
-      this.registryPromise = (async () => {
-        const resp = await fetch(MODEL_REGISTRY_URL);
-        if (!resp.ok) {
-          throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
-        }
-        return (await resp.json()) as MozillaModelRegistry;
-      })().catch((error: unknown) => {
-        this.registryPromise = null;
-        throw error;
-      });
-    }
+    this.registryPromise ??= (async () => {
+      const resp = await fetch(MODEL_REGISTRY_URL);
+      if (!resp.ok) {
+        throw new Error(`Failed to fetch model registry (HTTP ${resp.status}).`);
+      }
+      return (await resp.json()) as MozillaModelRegistry;
+    })().catch((error: unknown) => {
+      this.registryPromise = null;
+      throw error;
+    });
     return this.registryPromise;
   }
 
@@ -366,8 +366,6 @@ export class BergamotModelDownloader {
     contentType?: string;
     body: string;
   }> {
-    const https = this.nodeRequire<typeof import('node:https')>('https');
-
     return new Promise((resolve, reject) => {
       const request = https.request({
         hostname: 'storage.googleapis.com',
@@ -416,9 +414,6 @@ export class BergamotModelDownloader {
     // Local file name: strip the directory path from GCS, keep only the filename without .gz
     const gcsFileName = file.path.split('/').pop() ?? file.path;
     const baseName = gcsFileName.replace(/\.gz$/, '');
-    const p = this.nodeRequire<typeof import('node:path')>('path');
-    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
-    const fsPromises = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
 
     const localPath = p.join(this.pairDir(pair), baseName);
 
@@ -533,8 +528,6 @@ export class BergamotModelDownloader {
   async isModelCached(pair: string): Promise<boolean> {
     try {
       const metadata = await this.fetchMetadata(pair);
-      const p = this.nodeRequire<typeof import('node:path')>('path');
-      const fs = this.nodeRequire<typeof import('node:fs')>('fs');
 
       const files = [metadata.files.model, metadata.files.vocab, metadata.files.lexicalShortlist];
       for (const file of files) {
@@ -553,11 +546,10 @@ export class BergamotModelDownloader {
   /**
    * Removes cached model files for a language pair.
    */
-  async removeModel(pair: string): Promise<void> {
-    const fs = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
+  removeModel(pair: string): void {
     const dir = this.pairDir(pair);
-    if (fs && this.nodeRequire<typeof import('node:fs')>('fs').existsSync(dir)) {
-      await fs.rm(dir, { recursive: true, force: true });
+    if (fs?.existsSync(dir)) {
+      fs.rm(dir, { recursive: true, force: true }, () => {});
     }
   }
 
@@ -565,9 +557,6 @@ export class BergamotModelDownloader {
    * Decompresses a .gz file using Node's zlib.
    */
   private async decompress(input: string, output: string): Promise<void> {
-    const zlib = this.nodeRequire<typeof import('node:zlib')>('zlib');
-    const fsPromises = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
-
     const data = await fsPromises.readFile(input);
     
     // Check if data looks like gzip (magic bytes: 0x1f 0x8b)
@@ -580,26 +569,6 @@ export class BergamotModelDownloader {
     
     const decompressed = zlib.gunzipSync(data);
     await fsPromises.writeFile(output, decompressed);
-  }
-
-  /**
-   * Safe require that works in both Mailspring renderer and main process.
-   */
-  private nodeRequire<T>(moduleName: string): T {
-    try {
-      const fn =
-        typeof globalThis !== 'undefined' && (globalThis as any).require
-          ? (globalThis as any).require
-          : typeof require !== 'undefined'
-            ? require
-            : null;
-      if (typeof fn === 'function') {
-        return fn(moduleName) as T;
-      }
-    } catch {
-      /* non-node runtime */
-    }
-    throw new Error(`Cannot load Node.js module: ${moduleName}`);
   }
 }
 
@@ -672,9 +641,6 @@ export class LocalTranslatorBacking {
    * Builds a Mozilla/Translations-compatible registry from locally cached models.
    */
   private async buildLocalRegistry(): Promise<BergamotModelEntry[]> {
-    const fs = this.nodeRequire<typeof import('node:fs')>('fs');
-    const p = this.nodeRequire<typeof import('node:path')>('path');
-
     const bergamotDir = p.join(this.downloader['modelsDir'], 'bergamot');
     if (!fs.existsSync(bergamotDir)) return [];
 
@@ -715,14 +681,11 @@ export class LocalTranslatorBacking {
     pair: { from: string; to: string },
     _options?: { signal?: AbortSignal }
   ): Promise<BergamotModelBuffers> {
-    const fs = this.nodeRequire<typeof import('node:fs/promises')>('fs/promises');
-    const p = this.nodeRequire<typeof import('node:path')>('path');
-
     const pairKey = `${pair.from}-${pair.to}`;
     const pairPath = this.downloader.pairDir(pairKey);
 
     // Read all files in the pair directory
-    const files = await fs.readdir(pairPath);
+    const files = await fsPromises.readdir(pairPath);
 
     let modelBuffer: ArrayBuffer | null = null;
     let shortlistBuffer: ArrayBuffer | null = null;
@@ -730,7 +693,7 @@ export class LocalTranslatorBacking {
 
     for (const file of files) {
       const fullPath = p.join(pairPath, file);
-      const data = await fs.readFile(fullPath);
+      const data = await fsPromises.readFile(fullPath);
       const buffer = data.buffer.slice(
         data.byteOffset,
         data.byteOffset + data.byteLength
@@ -812,23 +775,6 @@ export class LocalTranslatorBacking {
         this.backing.models.clear();
       }
     }
-  }
-
-  private nodeRequire<T>(moduleName: string): T {
-    try {
-      const fn =
-        typeof globalThis !== 'undefined' && (globalThis as any).require
-          ? (globalThis as any).require
-          : typeof require !== 'undefined'
-            ? require
-            : null;
-      if (typeof fn === 'function') {
-        return fn(moduleName) as T;
-      }
-    } catch {
-      /* non-node runtime */
-    }
-    throw new Error(`Cannot load Node.js module: ${moduleName}`);
   }
 }
 
@@ -1382,9 +1328,6 @@ export class BergamotTranslationProvider implements ITranslationProvider {
    * Gets the list of installed language pairs.
    */
   private async getInstalledPairs(): Promise<string[]> {
-    // const fs = this.nodeRequire<typeof import('node:fs')>('fs');
-    const p = path;
-
     const bergamotDir = p.join(this.downloader['modelsDir'], 'bergamot');
     if (!fs.existsSync(bergamotDir)) return [];
 
@@ -1486,22 +1429,5 @@ export class BergamotTranslationProvider implements ITranslationProvider {
       ['vi', 'Vietnamese'],
       ['zh', 'Chinese'],
     ]);
-  }
-
-  private nodeRequire<T>(moduleName: string): T {
-    try {
-      const fn =
-        typeof globalThis !== 'undefined' && (globalThis as any).require
-          ? (globalThis as any).require
-          : typeof require !== 'undefined'
-            ? require
-            : null;
-      if (typeof fn === 'function') {
-        return fn(moduleName) as T;
-      }
-    } catch {
-      /* non-node runtime */
-    }
-    throw new Error(`Cannot load Node.js module: ${moduleName}`);
   }
 }

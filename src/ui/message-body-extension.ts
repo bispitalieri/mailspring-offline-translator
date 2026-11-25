@@ -1,4 +1,5 @@
 import { TranslationResult } from '../types';
+import {SanitizeTransformer, MessageBodyProcessor, MessageUtils} from 'mailspring-exports';
 
 export type TranslationViewMode = 'inline' | 'split' | 'original';
 
@@ -243,14 +244,7 @@ export function formatWithPresentation(
 }
 
 export async function sanitizeTranslatedHtml(html: string): Promise<string> {
-  const mailspringExports = require('mailspring-exports') as {
-    SanitizeTransformer?: { run: (html: string) => Promise<string> };
-  };
-  const sanitizer = mailspringExports.SanitizeTransformer;
-  if (!sanitizer || typeof sanitizer.run !== 'function') {
-    throw new Error('Mailspring HTML sanitizer is unavailable.');
-  }
-  return sanitizer.run(html);
+  return SanitizeTransformer.run(html);
 }
 
 // Updates Mailspring's cache with the specified body.
@@ -259,13 +253,13 @@ async function updateMessageBodyCache(
   body: string,
   isPlaintext: boolean = false
 ): Promise<void> {
-  const mailspringExports = require('mailspring-exports') as {
-    MessageBodyProcessor?: { updateCacheForMessage: (message: RenderableMessage) => Promise<void> };
-  };
-  const processor = mailspringExports.MessageBodyProcessor;
-  if (!processor || typeof processor.updateCacheForMessage !== 'function') {
-    return;
-  }
+  // const mailspringExports = require('mailspring-exports') as {
+  //   MessageBodyProcessor?: { updateCacheForMessage: (message: RenderableMessage) => Promise<void> };
+  // };
+  // const processor = mailspringExports.MessageBodyProcessor;
+  // if (!processor || typeof processor.updateCacheForMessage !== 'function') {
+  //   return;
+  // }
 
   const renderingMessage = message.clone ? message.clone() : { ...message };
   renderingMessage.body = body;
@@ -274,7 +268,7 @@ async function updateMessageBodyCache(
   if (isPlaintext) {
     renderingMessage.plaintext = false;
   }
-  await processor.updateCacheForMessage(renderingMessage);
+  await MessageBodyProcessor.updateCacheForMessage(renderingMessage as any);
 }
 
 // Restores a message's cache with the original body.
@@ -286,18 +280,10 @@ export async function restoreMessageCache(messageId: string): Promise<void> {
     return;
   }
 
-  const mailspringExports = require('mailspring-exports') as {
-    MessageBodyProcessor?: { updateCacheForMessage: (message: any) => Promise<void> };
-  };
-  const processor = mailspringExports.MessageBodyProcessor;
-  if (!processor || typeof processor.updateCacheForMessage !== 'function') {
-    return;
-  }
-
   // Use the real message if available, otherwise create a minimal object.
   // The real message has all the methods and properties required by Mailspring.
   let cacheMessage: any;
-  if (lastTranslatedMessage && lastTranslatedMessage.id === messageId) {
+  if (lastTranslatedMessage?.id === messageId) {
     cacheMessage = lastTranslatedMessage.clone ? lastTranslatedMessage.clone() : { ...lastTranslatedMessage };
   } else {
     // Fallback: minimal message object with the methods required by Mailspring.
@@ -317,7 +303,7 @@ export async function restoreMessageCache(messageId: string): Promise<void> {
   cacheMessage.body = originalBody;
   cacheMessage.plaintext = plaintextMessages.has(messageId);
 
-  await processor.updateCacheForMessage(cacheMessage);
+  await MessageBodyProcessor.updateCacheForMessage(cacheMessage);
 }
 
 // Restores the current message's cache (the one currently being viewed)

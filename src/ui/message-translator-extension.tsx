@@ -21,7 +21,7 @@ import {
   resetMessageToOriginal,
   restoreCurrentMessageCache,
   clearMessageTranslationPresentation,
-  currentMessageIdGetter,
+  currentMessageIdGetter, TranslationViewMode,
 } from './message-body-extension';
 
 const { useState, useEffect } = React;
@@ -38,7 +38,7 @@ export interface MessageProps {
 export const MessageTranslatorHeader: React.FC<{
   message: any;
   manager?: TranslationManager;
-  onTranslationChange?: (result: TranslationResult | null, mode: 'inline' | 'split' | 'original') => void;
+  onTranslationChange?: (result: TranslationResult | null, mode: TranslationViewMode) => void;
 }> = ({ message, manager: propsManager, onTranslationChange }) => {
   const manager = propsManager || (window as any).__mailspring_offline_translator_manager || new TranslationManager();
 
@@ -65,7 +65,8 @@ export const MessageTranslatorHeader: React.FC<{
         clearMessageTranslationPresentation(prevId);
       }
       await resetMessageToOriginal(message);
-    })();
+    })()
+      .catch(() => {});
     setViewMode('original');
     setTranslationResult(null);
     setDetectedLang(null);
@@ -186,8 +187,7 @@ export const MessageTranslatorHeader: React.FC<{
             >
               {isTranslating ? (
                 <>
-                  <span className="offline-translator-translate-spinner" />
-                  Translating...
+                  <span className="offline-translator-translate-spinner" /> Translating...
                 </>
               ) : (
                 <>
@@ -221,7 +221,7 @@ export const MessageTranslatorHeader: React.FC<{
                 const nextSource = e.target.value;
                 setSourceLang(nextSource);
                 if (translationResult) {
-                  handleTranslate(undefined, undefined);
+                  handleTranslate().catch(() => {});
                 }
               }}
             >
@@ -243,7 +243,7 @@ export const MessageTranslatorHeader: React.FC<{
                 const nextLang = e.target.value;
                 setTargetLang(nextLang);
                 if (translationResult) {
-                  handleTranslate(nextLang);
+                  handleTranslate(nextLang).catch(() => {});
                 }
               }}
             >
@@ -287,7 +287,7 @@ export const MessageTranslatorHeader: React.FC<{
               title="Re-translate with chosen options"
               className="offline-translator-retranslate-btn"
             >
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-label="translate" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>

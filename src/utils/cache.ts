@@ -3,40 +3,40 @@
  */
 
 import { CacheEntry, CacheStats } from '../types';
+import nodeCrypto from 'node:crypto';
 
 export function computeSha256(text: string): string {
-  if (typeof process !== 'undefined' && process.versions?.node) {
-    try {
-      const nodeCrypto = require('node:crypto');
-      return nodeCrypto.createHash('sha256').update(text, 'utf8').digest('hex');
-    } catch {
-      // Fallback
-    }
-  }
-
-  let h0 = 0x6a09e667;
-  let h1 = 0xbb67ae85;
-  let h2 = 0x3c6ef372;
-  let h3 = 0xa54ff53a;
-  let h4 = 0x510e527f;
-  let h5 = 0x9b05688c;
-  let h6 = 0x1f83d9ab;
-  let h7 = 0x5be0cd19;
-
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    h0 = Math.trunc(h0 ^ (code * 31 + i));
-    h1 = Math.trunc(h1 ^ (code * 37 + (h0 >>> 3)));
-    h2 = Math.trunc(h2 ^ (code * 41 + (h1 >>> 5)));
-    h3 = Math.trunc(h3 ^ (code * 43 + (h2 >>> 7)));
-    h4 = Math.trunc(h4 ^ (code * 47 + (h3 >>> 9)));
-    h5 = Math.trunc(h5 ^ (code * 53 + (h4 >>> 11)));
-    h6 = Math.trunc(h6 ^ (code * 59 + (h5 >>> 13)));
-    h7 = Math.trunc(h7 ^ (code * 61 + (h6 >>> 15)));
-  }
-
-  const toHex = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
-  return `${toHex(h0)}${toHex(h1)}${toHex(h2)}${toHex(h3)}${toHex(h4)}${toHex(h5)}${toHex(h6)}${toHex(h7)}`;
+  return nodeCrypto.createHash('sha256').update(text, 'utf8').digest('hex');
+  // if (typeof process !== 'undefined' && process.versions?.node) {
+  //   try {
+  //   } catch {
+  //     // Fallback
+  //   }
+  // }
+  //
+  // let h0 = 0x6a09e667;
+  // let h1 = 0xbb67ae85;
+  // let h2 = 0x3c6ef372;
+  // let h3 = 0xa54ff53a;
+  // let h4 = 0x510e527f;
+  // let h5 = 0x9b05688c;
+  // let h6 = 0x1f83d9ab;
+  // let h7 = 0x5be0cd19;
+  //
+  // for (let i = 0; i < text.length; i++) {
+  //   const code = text.charCodeAt(i);
+  //   h0 = Math.trunc(h0 ^ (code * 31 + i));
+  //   h1 = Math.trunc(h1 ^ (code * 37 + (h0 >>> 3)));
+  //   h2 = Math.trunc(h2 ^ (code * 41 + (h1 >>> 5)));
+  //   h3 = Math.trunc(h3 ^ (code * 43 + (h2 >>> 7)));
+  //   h4 = Math.trunc(h4 ^ (code * 47 + (h3 >>> 9)));
+  //   h5 = Math.trunc(h5 ^ (code * 53 + (h4 >>> 11)));
+  //   h6 = Math.trunc(h6 ^ (code * 59 + (h5 >>> 13)));
+  //   h7 = Math.trunc(h7 ^ (code * 61 + (h6 >>> 15)));
+  // }
+  //
+  // const toHex = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
+  // return `${toHex(h0)}${toHex(h1)}${toHex(h2)}${toHex(h3)}${toHex(h4)}${toHex(h5)}${toHex(h6)}${toHex(h7)}`;
 }
 
 export class TranslationCache {

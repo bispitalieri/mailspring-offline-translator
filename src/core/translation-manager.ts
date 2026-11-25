@@ -394,7 +394,6 @@ export class TranslationManager {
     if (this.settings.cacheEnabled) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log('cached: ', cached);
         return {
           id: request.id,
           translatedText: cached.translatedText,
