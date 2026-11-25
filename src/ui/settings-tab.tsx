@@ -123,9 +123,9 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     ]);
     setModelError(
       availableResult.status === 'rejected'
-        ? `Could not load the Bergamot model catalog: ${String(availableResult.reason)}`
+        ? `Could not load the Mozilla/Translations model catalog: ${String(availableResult.reason)}`
         : installedResult.status === 'rejected'
-          ? `Could not read installed Bergamot models: ${String(installedResult.reason)}`
+          ? `Could not read installed Mozilla/Translations models: ${String(installedResult.reason)}`
           : null
     );
   };
@@ -161,7 +161,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
         (percent: number, message: string) => setInstallProgress({ percent, message })
       );
       if (!installed) {
-        throw new Error(`Bergamot did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        throw new Error(`Mozilla/Translations did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
       }
       await refreshInstalledModels();
     } catch (error) {
@@ -177,7 +177,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     try {
       const removed = await manager.removeBergamotModel(pkg.fromCode, pkg.toCode);
       if (!removed) {
-        throw new Error(`Bergamot did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        throw new Error(`Mozilla/Translations did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
       }
       await refreshInstalledModels();
     } catch (error) {
@@ -216,7 +216,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
           onClick={() => setActiveSubTab('models')}
           className={activeSubTab === 'models' ? 'active' : ''}
         >
-          Offline Models (Bergamot)
+          Offline Models (Mozilla/Translations)
         </button>
         <button
           onClick={() => setActiveSubTab('diagnostics')}
@@ -421,7 +421,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
           {modelError && (
             <div className="offline-translator-error" role="alert">
-              <strong>Bergamot</strong> model management issue. {modelError}
+              <strong>Mozilla/Translations</strong> model management issue. {modelError}
             </div>
           )}
 
@@ -453,13 +453,13 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               <tbody>
                 {modelsLoading && (
                   <tr><td colSpan={5} className="offline-translator-table-empty">
-                    Loading Bergamot models...
+                    Loading Mozilla/Translations models...
                   </td></tr>
                 )}
                 {!modelsLoading && filteredModels.length === 0 && (
                   <tr><td colSpan={5} className="offline-translator-table-empty">
                     {models.length === 0
-                      ? 'No Bergamot models are available. Check your network connection.'
+                      ? 'No Mozilla/Translations models are available. Check your network connection.'
                       : 'No models match your search criteria.'}
                   </td></tr>
                 )}
