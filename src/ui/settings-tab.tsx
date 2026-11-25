@@ -43,7 +43,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
   // Offline model management state
   const [models, setModels] = useState<ModelPackage[]>([]);
-  const [modelProviderFilter, setModelProviderFilter] = useState<'bergamot'>('bergamot');
 
   const [installingModel, setInstallingModel] = useState<string | null>(null);
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null);
@@ -57,9 +56,11 @@ export const OfflineTranslatorSettingsTab: React.FC<{
 
   useEffect(() => {
     let active = true;
-    manager.getProviderDiagnostics().then((info: ProviderInfo[]) => {
-      if (active) setProvidersInfo(info);
-    });
+    manager.getProviderDiagnostics()
+      .then((info: ProviderInfo[]) => {
+        if (active) setProvidersInfo(info);
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -82,7 +83,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
       onCancel: () => {
         // User cancelled - do nothing
       },
-    });
+    }).catch(() => {});
   };
 
   const refreshInstalledModels = async () => {
@@ -121,13 +122,14 @@ export const OfflineTranslatorSettingsTab: React.FC<{
       })),
       ...installedOnlyModels,
     ]);
-    setModelError(
-      availableResult.status === 'rejected'
-        ? `Could not load the Mozilla/Translations model catalog: ${String(availableResult.reason)}`
-        : installedResult.status === 'rejected'
-          ? `Could not read installed Mozilla/Translations models: ${String(installedResult.reason)}`
-          : null
-    );
+
+    let error = null;
+    if(availableResult.status === 'rejected'){
+      error = `Could not load the Mozilla/Translations model catalog: ${String(availableResult.reason)}`
+    } else if(installedResult.status === 'rejected') {
+      error = `Could not read installed Mozilla/Translations models: ${String(installedResult.reason)}`;
+    }
+    setModelError(error);
   };
 
   useEffect(() => {
@@ -147,7 +149,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     return () => {
       active = false;
     };
-  }, [activeSubTab, manager, modelProviderFilter]);
+  }, [activeSubTab, manager]);
 
   const executeInstall = async (pkg: ModelPackage) => {
     const key = `${pkg.fromCode}->${pkg.toCode}`;
@@ -161,7 +163,8 @@ export const OfflineTranslatorSettingsTab: React.FC<{
         (percent: number, message: string) => setInstallProgress({ percent, message })
       );
       if (!installed) {
-        throw new Error(`Mozilla/Translations did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        setModelError(`Mozilla/Translations did not install the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        return;
       }
       await refreshInstalledModels();
     } catch (error) {
@@ -177,7 +180,8 @@ export const OfflineTranslatorSettingsTab: React.FC<{
     try {
       const removed = await manager.removeBergamotModel(pkg.fromCode, pkg.toCode);
       if (!removed) {
-        throw new Error(`Mozilla/Translations did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        setModelError(`Mozilla/Translations did not remove the ${pkg.fromCode} → ${pkg.toCode} model.`);
+        return;
       }
       await refreshInstalledModels();
     } catch (error) {
