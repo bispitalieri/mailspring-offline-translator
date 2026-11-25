@@ -11,10 +11,12 @@
  * - Preserves rich text styling and hyperlinks.
  */
 
-import React, { useState } from '../utils/react-runtime';
+import {React} from 'mailspring-exports';
 import { TranslationManager } from '../core/translation-manager';
 import { ProviderId } from '../types';
 import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
+
+const {useState} = React;
 
 export interface ComposerSession {
   draft?: {

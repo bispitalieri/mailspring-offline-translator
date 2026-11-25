@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TranslationManager } from '../src/core';
+import { TranslationManager } from '../src/core/translation-manager';
 import { ITranslationProvider } from '../src/providers/provider-interface';
-import { LanguageDetectionResult, LanguagePair, ProviderInfo, TranslationRequest, TranslationResult } from '../src/types';
+import { LanguageDetectionResult, LanguagePair, PluginSettings, ProviderInfo, TranslationRequest, TranslationResult } from '../src/types';
 
 // Mock Provider for testing orchestrator fallback & resolution
 class MockProvider implements ITranslationProvider {
@@ -72,7 +72,7 @@ test('TranslationManager prioritizes provider and falls back when unsupported', 
   customProviders.set('apple', mockApple);
   customProviders.set('bergamot', mockBergamot);
 
-  const manager = new TranslationManager({ preferredProvider: 'auto', autoFallback: true }, customProviders);
+  const manager = new TranslationManager({ preferredProvider: 'auto' }, customProviders);
 
   // Translating to 'it' (unsupported by Apple) should fallback to Mozilla/Translations
   const res = await manager.translate({
@@ -84,6 +84,34 @@ test('TranslationManager prioritizes provider and falls back when unsupported', 
 
   assert.equal(res.providerUsed, 'bergamot');
   assert.equal(res.targetLang, 'it');
+});
+
+test('TranslationManager does not fall back when a specific provider is selected', async () => {
+  let fallbackCalls = 0;
+  const mockApple = new MockProvider('apple', true, ['it'], () => {
+    throw new Error('Apple translation failed');
+  });
+  const mockBergamot = new MockProvider('bergamot', true, ['it'], (text) => {
+    fallbackCalls++;
+    return `[bergamot] ${text}`;
+  });
+
+  const customProviders = new Map();
+  customProviders.set('apple', mockApple);
+  customProviders.set('bergamot', mockBergamot);
+
+  const manager = new TranslationManager({ preferredProvider: 'apple', cacheEnabled: false }, customProviders);
+
+  await assert.rejects(
+    manager.translate({
+      id: 'req-explicit-provider',
+      text: 'Hello friend',
+      sourceLang: 'en',
+      targetLang: 'it',
+    }),
+    /Apple translation failed/
+  );
+  assert.equal(fallbackCalls, 0);
 });
 
 test('TranslationManager returns identical text if source equals target', async () => {

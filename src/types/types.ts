@@ -75,7 +75,6 @@ export interface ModelPackage {
 export interface PluginSettings {
   defaultTargetLanguage: string; // 'system' or BCP-47 code
   preferredProvider: ProviderId;
-  autoFallback: boolean;
   autoDetectSource: boolean;
   displayMode: 'inline' | 'split' | 'toggle';
   excludeSignatures: boolean;

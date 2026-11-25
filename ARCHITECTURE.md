@@ -57,7 +57,7 @@ Mailspring uses an internal `ComponentRegistry` inside its Electron renderer thr
 
 3. **`PreferencesUIStore`**:
    - Embedded into Mailspring's Preferences dialog.
-   - Configures default target locale (`system` or BCP-47), provider preference, automatic fallback, display layout, signature/quote exclusion rules, and offline model management.
+   - Configures default target locale (`system` or BCP-47), automatic platform provider priority or a specific provider, display layout, signature/quote exclusion rules, and offline model management.
 
 ---
 

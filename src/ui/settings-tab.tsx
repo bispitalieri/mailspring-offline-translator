@@ -4,7 +4,6 @@
  * Implements a native Mailspring PreferencesUIStore tab for:
  * - Default target language (System locale or custom BCP-47)
  * - Preferred Provider selection (Auto, Apple, Windows AI, Mozilla/Translations)
- * - Automatic Fallback switch
  * - Display Mode (Inline, Split/Side-by-side)
  * - Exclusions (Signatures, Quoted replies, Code blocks)
  * - Local SHA-256 Translation Cache management & stats
@@ -12,12 +11,13 @@
  * - Provider Diagnostics & Hardware probes
  */
 
-import React, { useEffect, useState } from '../utils/react-runtime';
+import { React } from 'mailspring-exports';
 import { TranslationManager } from '../core';
 import { LanguagePair, ModelPackage, PluginSettings, ProviderInfo } from '../types';
 import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from '../utils';
 import { confirmationWindow } from './confirmation-window';
 
+const { useEffect, useState } = React;
 const MODEL_PAGE_SIZE = 10;
 
 export const OfflineTranslatorSettingsTab: React.FC<{
@@ -259,12 +259,12 @@ export const OfflineTranslatorSettingsTab: React.FC<{
             </div>
           </div>
 
-          {/* Provider Selection & Fallback */}
+          {/* Provider Selection */}
           <div className="offline-translator-card">
             <div>
               <h4 className="offline-translator-card-title">Preferred Translation Provider</h4>
               <p className="offline-translator-card-desc">
-                Choose which local engine to attempt first when translating.
+                Choose automatic platform priority or a specific local translation engine.
               </p>
               <div className="offline-translator-provider-grid">
                 {[
@@ -295,21 +295,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </div>
             </div>
 
-            <div className="offline-translator-divider">
-              <label className="offline-translator-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={settings.autoFallback}
-                  onChange={(e) => handleUpdate({ autoFallback: e.target.checked })}
-                />
-                <div>
-                  <span className="offline-translator-checkbox-label">Enable automatic fallback</span>
-                  <p className="offline-translator-checkbox-desc">
-                    If preferred provider encounters an unsupported language pair, smoothly fall back to the next available provider.
-                  </p>
-                </div>
-              </label>
-            </div>
           </div>
 
           {/* Translation Display Mode & Exclusions */}

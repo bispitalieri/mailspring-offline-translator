@@ -87,7 +87,7 @@ export function serialize(): Record<string, any> {
 }
 
 export function deserialize(data: Record<string, any>): void {
-  // Gestito automaticamente da AppEnv.config in TranslationManager
+  // Automatically handled by AppEnv.config in TranslationManager
 }
 
 export function getManager(): TranslationManager | null {

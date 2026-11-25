@@ -3,7 +3,7 @@
  * 
  * Orchestrator handling:
  * - Operating-system aware provider resolution priority (macOS: Apple -> Mozilla/Translations; Windows: Windows AI -> Mozilla/Translations; Linux: Mozilla/Translations)
- * - Automatic graceful fallback on provider failure or missing language pairs
+ * - Automatic provider selection and fallback in platform priority order
  * - In-flight duplicate request deduplication
  * - SHA-256 local translation caching
  * - HTML structure preservation
@@ -26,7 +26,10 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { TranslationCache, HtmlTranslator, getSystemLocale, normalizeLanguageTag, ProcessManager} from '../utils';
+import { TranslationCache } from '../utils/cache';
+import { HtmlTranslator } from '../utils/html-translator';
+import { getSystemLocale, normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager } from '../utils/process-manager';
 
 declare const AppEnv: any;
 const CONFIG_KEY = 'mailspring-offline-translator.settings';
@@ -50,7 +53,6 @@ export class TranslationManager {
     this.settings = {
       defaultTargetLanguage: 'system',
       preferredProvider: 'auto',
-      autoFallback: true,
       autoDetectSource: true,
       displayMode: 'split',
       excludeSignatures: true,
@@ -249,7 +251,6 @@ export class TranslationManager {
    */
   private async shouldAutoDownloadBergamot(sourceLang: string, targetLang: string): Promise<boolean> {
     const preferred = this.settings.preferredProvider;
-    const allowFallback = this.settings.autoFallback;
 
     // Case 1: Mozilla/Translations provider explicitly selected → always download
     if (preferred === 'bergamot') {
@@ -284,28 +285,17 @@ export class TranslationManager {
     }
 
     // No non-Mozilla/Translations provider can translate — Mozilla/Translations is the last resort
-    // Only download if Mozilla/Translations is in the priority list and fallback is allowed
-    return allowFallback && priority.includes('bergamot');
+    return priority.includes('bergamot');
   }
 
   /**
-   * Resolves the primary provider to use, honoring preferredProvider or automatic platform priority.
-   * 
-   * If preferredProvider is not 'auto':
-   *   - If autoFallback is true: try the preferred provider, then fall back to others in priority order.
-   *     However, if the preferred provider is a non-Mozilla/Translations provider (e.g. Apple), never fall back
-   *     to Mozilla/Translations — respect the user's explicit choice.
-   *   - If autoFallback is false: use only the preferred provider without fallback.
-   * If preferredProvider is 'auto':
-   *   - If autoFallback is true: use the platform priority list, trying all providers.
-   *   - If autoFallback is false: use only the first provider in the priority list.
+   * Resolves the explicitly selected provider or tries providers in platform priority order in automatic mode.
    */
   public async resolveProvider(
     sourceLang: string,
     targetLang: string
   ): Promise<ITranslationProvider | null> {
     const preferred = this.settings.preferredProvider;
-    const allowFallback = this.settings.autoFallback;
 
     /** Helper: try a single provider */
     const tryProvider = async (pid: ProviderId): Promise<ITranslationProvider | null> => {
@@ -319,36 +309,11 @@ export class TranslationManager {
     };
 
     if (preferred !== 'auto') {
-      // Specific provider selected by the user
-      const result = await tryProvider(preferred);
-      if (result) return result;
-
-      // If the preferred provider doesn't work and fallback is enabled, try others.
-      // However, if the user explicitly selected a non-Mozilla/Translations provider (e.g. Apple),
-      // do not fall back to Mozilla/Translations — respect the user's choice.
-      if (allowFallback) {
-        const priority = this.getPriorityList();
-        for (const pid of priority) {
-          if (pid === preferred) continue; // Skip the already-tried provider
-          // If the user selected a non-Mozilla/Translations provider, skip Mozilla/Translations fallback
-          if (preferred !== 'bergamot' && pid === 'bergamot') continue;
-          const result = await tryProvider(pid);
-          if (result) return result;
-        }
-      }
-
-      return null;
+      return tryProvider(preferred);
     }
 
     // 'auto' mode: use the platform priority list
     const priority = this.getPriorityList();
-    
-    if (!allowFallback) {
-      // Without fallback, try only the first provider in the list
-      return await tryProvider(priority[0]);
-    }
-
-    // With fallback enabled, try all providers in priority order
     for (const pid of priority) {
       const result = await tryProvider(pid);
       if (result) return result;
@@ -561,7 +526,7 @@ export class TranslationManager {
 
       return result;
     } catch (err: any) {
-      if (this.settings.autoFallback) {
+      if (this.settings.preferredProvider === 'auto') {
         const fallbacks = this.getPriorityList().filter((id) => id !== providerInfo.id);
         for (const fId of fallbacks) {
           const fallbackProvider = this.providers.get(fId);

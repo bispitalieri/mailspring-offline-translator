@@ -21,7 +21,8 @@ import {
   TranslationRequest,
   TranslationResult,
 } from '../types';
-import { ProcessManager, normalizeLanguageTag} from '../utils';
+import { normalizeLanguageTag } from '../utils/bcp47';
+import { ProcessManager } from '../utils/process-manager';
 
 /** Language detection via languagedetect. */
 interface LanguageDetector {

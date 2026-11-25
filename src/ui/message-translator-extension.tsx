@@ -8,7 +8,7 @@
  * Crucial: Never mutates message body in Mailspring's SQLite/IndexedDB store.
  */
 
-import React, { useState, useEffect } from '../utils/react-runtime';
+import {React} from 'mailspring-exports';
 import { TranslationManager } from '../core';
 import { TranslationResult, ProviderId, ModelPackage } from '../types';
 import { getLanguageDisplayName, getCommonLanguages, normalizeLanguageTag } from '../utils';
@@ -23,6 +23,8 @@ import {
   clearMessageTranslationPresentation,
   currentMessageIdGetter,
 } from './message-body-extension';
+
+const { useState, useEffect } = React;
 
 export interface MessageProps {
   message: {
@@ -75,7 +77,7 @@ export const MessageTranslatorHeader: React.FC<{
   const confirmModelDownloadIfNeeded = async (text: string, target: string): Promise<boolean> => {
     const settings = manager.getSettings();
     const mayAutoDownload = settings.preferredProvider === 'bergamot' ||
-      (settings.preferredProvider === 'auto' && settings.autoFallback);
+      settings.preferredProvider === 'auto';
     if (!mayAutoDownload) return true;
 
     const detectedSource = sourceLang === 'auto'
