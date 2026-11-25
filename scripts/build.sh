@@ -26,16 +26,26 @@ if [[ ! -f "lib/core/main.js" ]]; then
 fi
 echo "✓ Verified lib/core/main.js entry point exists."
 
-# 3. Build Apple Native Helper on macOS if swiftc is present
+# 3. Build a universal Apple Translation helper on macOS
 if [[ "$(uname -s)" == "Darwin" ]]; then
   echo "[2/4] macOS detected: Compiling Apple Translation Helper..."
-  if command -v swiftc >/dev/null 2>&1; then
-    mkdir -p helpers/apple/bin
-    swiftc -parse-as-library -O helpers/apple/TranslationHelper.swift -o helpers/apple/bin/apple-translator-darwin-universal && \
-    echo "✓ Apple Translation Helper compiled successfully." || \
-    echo "Warning: Failed to compile Apple Translation Helper. Using existing binary or stub."
+  if command -v swiftc >/dev/null 2>&1 && command -v lipo >/dev/null 2>&1; then
+    HELPER_BIN_DIR="helpers/apple/bin"
+    BUILD_DIR="$(mktemp -d "${HELPER_BIN_DIR}/.build.XXXXXX")"
+    trap 'rm -rf "$BUILD_DIR"' EXIT
+    swiftc -target arm64-apple-macosx26.0 -parse-as-library -O \
+      helpers/apple/TranslationHelper.swift -o "${BUILD_DIR}/apple-translator-arm64"
+    swiftc -target x86_64-apple-macosx26.0 -parse-as-library -O \
+      helpers/apple/TranslationHelper.swift -o "${BUILD_DIR}/apple-translator-x86_64"
+    lipo -create \
+      "${BUILD_DIR}/apple-translator-arm64" \
+      "${BUILD_DIR}/apple-translator-x86_64" \
+      -output "${BUILD_DIR}/apple-translator-darwin-universal"
+    mv "${BUILD_DIR}/apple-translator-darwin-universal" \
+      "${HELPER_BIN_DIR}/apple-translator-darwin-universal"
+    echo "✓ Universal Apple Translation Helper compiled for macOS 26+."
   else
-    echo "Notice: swiftc not found. Using precompiled Apple helper stub."
+    echo "Notice: Swift compiler or lipo not found. Using the bundled Apple helper."
   fi
 else
   echo "[2/4] Non-macOS platform: Preserving Apple Swift stubs."

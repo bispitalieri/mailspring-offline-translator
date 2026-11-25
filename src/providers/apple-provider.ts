@@ -1,5 +1,5 @@
 /**
- * Apple Translation Framework Provider (macOS 15+)
+ * Apple Translation Framework Provider (macOS 26+)
  *
  * Uses bundled standalone native Swift binary or compiles helper.
  */
@@ -30,17 +30,17 @@ export class AppleTranslationProvider implements ITranslationProvider {
   public getInfo(): ProviderInfo {
     let unavailabilityReason = undefined;
     if(!this.isMacOS){
-      unavailabilityReason = 'Apple Translation Framework is only available on macOS 15.0 or later.';
+      unavailabilityReason = 'Apple Translation Framework is only available on macOS 26.0 or later.';
     }else if(!this.resolution.exists){
       unavailabilityReason = this.resolution.error;
     }
     return {
       id: 'apple',
       name: 'Apple Translation Framework',
-      version: '1.0.0 (macOS 15+ Native)',
+      version: '1.0.0 (macOS 26+ Native)',
       platform: ['darwin'],
-      description: 'Zero-cloud, privacy-first translation using native Apple Silicon / CoreML neural models.',
-      minOSVersion: 'macOS 15.0 Sequoia',
+      description: 'Zero-cloud, privacy-first translation using the on-device macOS Translation framework.',
+      minOSVersion: 'macOS 26.0 or later',
       requiresNPU: false,
       isAvailable: this.isMacOS && this.resolution.exists,
       unavailabilityReason: unavailabilityReason,

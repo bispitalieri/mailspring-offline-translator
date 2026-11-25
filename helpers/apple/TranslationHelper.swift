@@ -2,7 +2,7 @@
 //  TranslationHelper.swift
 //  Mailspring Offline Translator - Apple Translation Framework Native Helper
 //
-//  Requires macOS 15.0+ (Sequoia)
+//  Requires macOS 26.0+
 //  Built using Swift 6 / Foundation / Translation framework.
 //  Uses TranslationSession for native, on-device offline translation.
 //  No Apple Intelligence requirement; works with standard on-device models.
@@ -74,7 +74,7 @@ struct LanguagePairPayload: Codable {
 
 // MARK: - Apple Translation Service Implementation
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 class AppleTranslationBridge {
     
     #if canImport(Translation)
@@ -185,7 +185,7 @@ func sendJSONResponse<T: Codable>(id: String, action: String, payload: T?, error
 @main
 struct CLIEntry {
     static func main() async {
-        if #available(macOS 15.0, *) {
+        if #available(macOS 26.0, *) {
             let bridge = AppleTranslationBridge()
             let input = FileHandle.standardInput
             var buffer = ""
@@ -218,13 +218,13 @@ struct CLIEntry {
                 }
             }
         } else {
-            let err = IPCError(code: "UNSUPPORTED_OS", message: "Apple Translation Framework requires macOS 15.0 or later.")
+            let err = IPCError(code: "UNSUPPORTED_OS", message: "Apple Translation Framework requires macOS 26.0 or later.")
             sendJSONResponse(id: "unknown", action: "error", payload: String?.none, error: err)
         }
     }
 }
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 func handleRequest(_ req: IPCRequest, bridge: AppleTranslationBridge) async {
     switch req.action {
     case "ping":
@@ -234,7 +234,7 @@ func handleRequest(_ req: IPCRequest, bridge: AppleTranslationBridge) async {
         let isAvail = bridge.checkAvailability()
         sendJSONResponse(id: req.id, action: "status", payload: [
             "available": isAvail ? "true" : "false",
-            "os": "macOS 15+",
+            "os": "macOS 26+",
             "provider": "apple"
         ] as [String: String], error: nil)
 

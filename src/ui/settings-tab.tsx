@@ -269,7 +269,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               <div className="offline-translator-provider-grid">
                 {[
                   { id: 'auto', label: 'Automatic (OS Priority)', desc: 'macOS: Apple → Mozilla/Translations; Windows: Edge Translator → Mozilla/Translations' },
-                  { id: 'apple', label: 'Apple Translation Framework', desc: 'Native macOS 15+ CoreML on-device models' },
+                  { id: 'apple', label: 'Apple Translation Framework', desc: 'macOS 26+ on-device translation on Intel and Apple Silicon' },
                   { id: 'edge-translator', label: 'Edge Translator API', desc: 'Windows 10/11: built-in Edge/Chromium Translator API with on-device neural models' },
                   { id: 'bergamot', label: 'Mozilla/Translations WASM (Mozilla)', desc: 'Mozilla Firefox Translations: WebAssembly engine, per-pair models, auto-unloads after 2 min' },
                 ].map((p) => (

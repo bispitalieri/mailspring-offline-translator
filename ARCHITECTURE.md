@@ -34,7 +34,7 @@ Mailspring Offline Translator provides private, on-device email translation embe
               ┌────────────────┐  ┌───────┐
               │ Apple Helper   │  │ WinAI │
               │ (Swift 6 /     │  │ Probe │
-              │  macOS 15)     │  │ (NPU) │
+              │  macOS 26+)    │  │ (NPU) │
               └────────────────┘  └───────┘
 ```
 

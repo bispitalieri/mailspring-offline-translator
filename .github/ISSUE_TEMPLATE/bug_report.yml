@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a problem with Mailspring Offline Translator
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Please describe the issue clearly. Do not include real email content,
+        personal information, credentials, or other sensitive data.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you were doing when it occurred.
+      placeholder: A clear description of the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps needed to reproduce the issue.
+      placeholder: |
+        1. Open...
+        2. Select...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: input
+    id: mailspring-version
+    attributes:
+      label: Mailspring version
+      placeholder: e.g. 1.15.0
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system and version
+      placeholder: e.g. macOS 15.1, Windows 11, or Ubuntu 24.04
+  - type: dropdown
+    id: translation-provider
+    attributes:
+      label: Translation provider
+      description: Select the provider in use, if known.
+      options:
+        - Apple Translation
+        - Mozilla/Translations
+        - Not sure
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Remove personal information and email content before sharing.
+      render: text

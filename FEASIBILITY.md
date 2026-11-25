@@ -6,7 +6,7 @@ This feasibility report evaluates native operating system and open-source capabi
 
 The evaluation specifically addresses the prompt's constraints:
 1. **Zero paid translation APIs, API keys, subscriptions, or external cloud services**.
-2. **Apple Translation framework on macOS 15+**.
+2. **Apple Translation framework on macOS 26+ (using the bundled installed-model API)**.
 3. **Windows AI / Windows App SDK / Phi Silica evaluation without inventing non-existent APIs**.
 
 ---
@@ -15,8 +15,8 @@ The evaluation specifically addresses the prompt's constraints:
 
 ### Technical Architecture
 - **API**: Apple Translation Framework (`Translation.framework`), introduced in macOS 15.0 Sequoia and iOS 17.4/18.
-- **Core Class**: `TranslationSession` and `LanguageAvailability`.
-- **Underlying Engine**: Apple Silicon Neural Engine (Core ML bilingual models).
+- **Core Class**: `TranslationSession` and `LanguageAvailability`; the bundled helper currently uses the installed-model initializer introduced in macOS 26.
+- **Underlying Engine**: Apple's on-device Translation runtime and language-pair models managed by macOS.
 - **Network Requirement**: On-demand download for initial language packs (with user prompt). Once downloaded, 100% offline inference with zero network traffic.
 - **Apple Intelligence Requirement**: **NOT REQUIRED**. The Translation framework operates on standard Apple Silicon Macs and Intel Macs without requiring Apple Intelligence hardware tiers.
 
@@ -24,7 +24,7 @@ The evaluation specifically addresses the prompt's constraints:
 Mailspring is an Electron application. Because Electron cannot directly link against Swift 6 / Objective-C frameworks without native C++ Node addons, a lightweight compiled Swift helper (`TranslationHelper`) communicates with Mailspring using newline-delimited JSON (`JSON Lines`) over `stdin`/`stdout`.
 
 ### Feasibility Verdict
-- **Feasibility**: **HIGH / PRODUCTION-READY** (on macOS 15.0+).
+- **Feasibility**: **HIGH / PRODUCTION-READY** (on macOS 26.0+).
 
 ---
 
@@ -64,8 +64,8 @@ Mailspring is an Electron application. Because Electron cannot directly link aga
 
 | OS / Platform | Native Engine | Cross-Platform Fallback | Offline Guarantee | User Consent Required for Models |
 |---|---|---|---|---|
-| **macOS 15+ (Sequoia)** | Apple Translation (`TranslationSession`) | Mozilla/Translations | 100% On-Device | Yes |
-| **macOS 14- (Sonoma & earlier)** | Unavailable (OS limitation) | Mozilla/Translations | 100% On-Device | Yes |
+| **macOS 26+** | Apple Translation (`TranslationSession`) | Mozilla/Translations | 100% On-Device | Yes |
+| **macOS 25 and earlier** | Unavailable (helper API requirement) | Mozilla/Translations | 100% On-Device | Yes |
 | **Windows 11 (Copilot+ NPU)** | Evaluated (Phi Silica SLM unfeasible for MT) | Mozilla/Translations | 100% On-Device | Yes |
 | **Windows 10 / 11 (Standard PC)** | Unavailable (No offline API) | Mozilla/Translations | 100% On-Device | Yes |
 | **Linux x64** | N/A | Mozilla/Translations | 100% On-Device | Yes |

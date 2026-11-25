@@ -19,14 +19,9 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "lib",
-    "helpers"
-  ]
+    "forceConsistentCasingInFileNames": true,
+    "typeRoots": [
+      "./types/"
+    ]
+  }
 }

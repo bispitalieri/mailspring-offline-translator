@@ -1,0 +1,70 @@
+name: Publish GitHub release assets
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Check out release
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$RELEASE_TAG" != "v${PACKAGE_VERSION}" ]]; then
+            echo "Release tag must be v${PACKAGE_VERSION}, got ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build release package
+        run: npm run package
+
+      - name: Create SHA-256 checksums
+        run: |
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          cd dist-package
+          shasum -a 256 \
+            "${PACKAGE_NAME}-v${VERSION}.zip" \
+            "${PACKAGE_NAME}-v${VERSION}.tar.gz" \
+            > "${PACKAGE_NAME}-v${VERSION}.sha256"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --generate-notes
+
+      - name: Upload assets to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          gh release upload "$RELEASE_TAG" \
+            "dist-package/${PACKAGE_NAME}-v${VERSION}.zip" \
+            "dist-package/${PACKAGE_NAME}-v${VERSION}.tar.gz" \
+            "dist-package/${PACKAGE_NAME}-v${VERSION}.sha256" \
+            --clobber

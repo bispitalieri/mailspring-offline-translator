@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "mailspring-exports": ["./tests/mocks/mailspring-exports.ts"]
+    }
+  }
+}

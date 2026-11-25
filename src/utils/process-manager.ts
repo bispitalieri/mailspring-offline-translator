@@ -92,7 +92,7 @@ export class ProcessManager {
   }
 
   /**
-   * Resolves the native Apple Translation Framework Swift helper for macOS 15+.
+   * Resolves the universal Apple Translation Framework helper for macOS 26+.
    */
   public static resolveAppleExecutable(customBaseDir?: string): ExecutableResolution {
     const base = customBaseDir || this.pluginRootDir;

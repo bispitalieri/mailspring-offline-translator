@@ -1,5 +1,5 @@
 import { TranslationResult } from '../types';
-import {SanitizeTransformer, MessageBodyProcessor, MessageUtils} from 'mailspring-exports';
+import {SanitizeTransformer, MessageBodyProcessor} from 'mailspring-exports';
 
 export type TranslationViewMode = 'inline' | 'split' | 'original';
 
@@ -84,7 +84,7 @@ function asPlaintextHtml(text: string): string {
   // Convert newlines to <br> to preserve line breaks in HTML
   const escaped = escapeHtml(text);
   const withBreaks = escaped.replace(/\n/g, '<br>');
-  return `<div style="overflow-wrap: anywhere">${withBreaks}</div>`;
+  return `<div style="white-space: pre-wrap; overflow-wrap: anywhere">${withBreaks}</div>`;
 }
 
 function formatSplitView(original: string, translated: string): string {
@@ -429,9 +429,9 @@ export function clearMessageTranslationPresentations(): void {
 }
 
 export class OfflineTranslatorMessageViewExtension {
-  static displayName = 'OfflineTranslatorMessageViewExtension';
+  static readonly displayName = 'OfflineTranslatorMessageViewExtension';
 
-  static formatMessageBody = ({ message }: { message: RenderableMessage }): void => {
+  static readonly formatMessageBody = ({ message }: { message: RenderableMessage }): void => {
     formatMessageBody(message);
   };
 }

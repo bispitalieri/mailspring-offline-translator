@@ -66,7 +66,7 @@ export class TranslationManager {
       ...customSettings,
     };
 
-    if (AppEnv !== undefined && AppEnv.config?.onDidChange) {
+    if (typeof AppEnv !== 'undefined' && AppEnv.config?.onDidChange) {
       this.configSubscription = AppEnv.config.onDidChange(CONFIG_KEY, ({ newValue }: { newValue?: Partial<PluginSettings> }) => {
         if (newValue) {
           this.settings = { ...this.settings, ...newValue };
@@ -90,7 +90,7 @@ export class TranslationManager {
   }
 
   private loadFromAppEnv(): Partial<PluginSettings> {
-    if (AppEnv !== 'undefined' && AppEnv.config?.get) {
+    if (typeof AppEnv !== 'undefined' && AppEnv.config?.get) {
       return AppEnv.config.get(CONFIG_KEY) || {};
     }
     return {};
@@ -101,7 +101,7 @@ export class TranslationManager {
    */
   public updateSettings(newSettings: Partial<PluginSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
-    if (AppEnv !== 'undefined' && AppEnv.config?.set) {
+    if (typeof AppEnv !== 'undefined' && AppEnv.config?.set) {
       AppEnv.config.set(CONFIG_KEY, this.settings);
     }
   }

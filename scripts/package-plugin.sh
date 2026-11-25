@@ -5,8 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PLUGIN_ROOT"
 
-PACKAGE_NAME="mailspring-offline-translator"
-VERSION="1.0.0"
+PACKAGE_NAME="$(node -p "require('./package.json').name")"
+VERSION="$(node -p "require('./package.json').version")"
 DIST_DIR="dist-package"
 
 echo "=========================================================="
@@ -22,7 +22,7 @@ mkdir -p "${DIST_DIR}/${PACKAGE_NAME}"
 
 # 3. Copy plugin payload (package.json, lib/, src/, helpers/, scripts/, docs)
 STAGED_PLUGIN="${DIST_DIR}/${PACKAGE_NAME}"
-cp -r package.json lib helpers styles "$STAGED_PLUGIN/"
+cp -r package.json LICENSE lib helpers styles "$STAGED_PLUGIN/"
 
 # Mailspring does not install plugin npm dependencies when loading a release archive.
 npm install --prefix "$STAGED_PLUGIN" --omit=dev --no-audit --no-fund
