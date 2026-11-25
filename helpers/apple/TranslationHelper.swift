@@ -193,9 +193,8 @@ struct CLIEntry {
             while true {
                 let chunk = input.availableData
                 if chunk.isEmpty {
-                    // Wait for more data
-                    try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
-                    continue
+                    // EOF means the parent closed the pipe; terminate the helper.
+                    break
                 }
 
                 if let text = String(data: chunk, encoding: .utf8) {
