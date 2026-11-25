@@ -18,6 +18,8 @@ import { LanguagePair, ModelPackage, PluginSettings, ProviderInfo } from '../typ
 import { getLanguageDisplayName, getCommonLanguages, getSystemLocale } from '../utils';
 import { confirmationWindow } from './confirmation-window';
 
+const MODEL_PAGE_SIZE = 10;
+
 export const OfflineTranslatorSettingsTab: React.FC<{
   manager?: TranslationManager;
 }> = (props) => {
@@ -48,6 +50,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleModelCount, setVisibleModelCount] = useState(MODEL_PAGE_SIZE);
 
   const languages = getCommonLanguages();
   const systemLocale = getSystemLocale();
@@ -197,6 +200,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
       m.toCode.toLowerCase().includes(q)
     );
   });
+  const visibleModels = filteredModels.slice(0, visibleModelCount);
 
   return (
     <div className="offline-translator-settings">
@@ -426,7 +430,10 @@ export const OfflineTranslatorSettingsTab: React.FC<{
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setVisibleModelCount(MODEL_PAGE_SIZE);
+              }}
               placeholder="Search language pairs (e.g. English, en -> it, Italian)..."
               className="offline-translator-search-input"
             />
@@ -438,7 +445,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               <thead>
                 <tr>
                   <th>Language Pair</th>
-                  <th>Engine</th>
                   <th>Package Size</th>
                   <th>Status</th>
                   <th className="offline-translator-table-action">Action</th>
@@ -457,7 +463,7 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                       : 'No models match your search criteria.'}
                   </td></tr>
                 )}
-                {filteredModels.map((m) => {
+                {visibleModels.map((m) => {
                   const key = `${m.fromCode}->${m.toCode}`;
                   const isBusy = installingModel === key;
 
@@ -466,7 +472,6 @@ export const OfflineTranslatorSettingsTab: React.FC<{
                       <td className="offline-translator-table-pair">
                         {m.fromName} ({m.fromCode}) → {m.toName} ({m.toCode})
                       </td>
-                      <td className="offline-translator-table-engine">{m.provider}</td>
                       <td className="offline-translator-table-size">{m.sizeMB ? `${m.sizeMB.toFixed(1)} MB` : 'Not provided'}</td>
                       <td className="offline-translator-table-status">
                         {m.isInstalled ? (
@@ -507,6 +512,28 @@ export const OfflineTranslatorSettingsTab: React.FC<{
               </tbody>
             </table>
           </div>
+          {!modelsLoading && filteredModels.length > MODEL_PAGE_SIZE && (
+            <div className="offline-translator-table-pagination">
+              {visibleModelCount < filteredModels.length && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleModelCount((count) => Math.min(count + MODEL_PAGE_SIZE, filteredModels.length))}
+                  className="offline-translator-secondary-btn"
+                >
+                  Show more ({filteredModels.length - visibleModelCount} remaining)
+                </button>
+              )}
+              {visibleModelCount > MODEL_PAGE_SIZE && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleModelCount(MODEL_PAGE_SIZE)}
+                  className="offline-translator-secondary-btn"
+                >
+                  Show less
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
