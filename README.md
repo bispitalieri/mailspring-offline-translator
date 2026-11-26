@@ -21,15 +21,19 @@
 | --- | --- |
 | macOS 26 or later | Apple Translation; Mozilla/Translations fallback |
 | macOS 25 or earlier | Mozilla/Translations |
-| Windows and Linux | Edge; Mozilla/Translations fallback|
+| Windows | Edge Translator; Mozilla/Translations fallback |
+| Linux | Mozilla/Translations |
 
 Available languages and language pairs depend on the selected engine and its models. Apple Translation is provided by macOS; its bundled helper is universal (`arm64` and `x86_64`) and requires macOS 26 or later. Mozilla/Translations models are managed by the plugin.
 
 ## Install
 
 1. Download the latest `.zip` from [GitHub Releases](https://github.com/bispitalieri/mailspring-offline-translator/releases/latest).
-2. Extract the `mailspring-offline-translator` folder into Mailspring's `packages` directory. On macOS, this is commonly `~/Library/Application Support/Mailspring/packages`.
-3. Restart Mailspring.
+2. Extract the `mailspring-offline-translator` folder directly into Mailspring's `packages` directory. Create the `packages` directory if it does not exist:
+   - **macOS:** `~/Library/Application Support/Mailspring/packages`
+   - **Windows:** `%APPDATA%\Mailspring\packages` (usually `C:\Users\<you>\AppData\Roaming\Mailspring\packages`; enter `%APPDATA%` in File Explorer's address bar to open the Roaming folder).
+   - **Linux:** `~/.config/Mailspring/packages`
+3. Check that the final path includes `packages/mailspring-offline-translator/package.json`, then restart Mailspring.
 4. Open **Preferences > Offline Translator > Offline Models** to browse available Mozilla/Translations models. Confirm a download to install a language pair.
 
 Once the required models are available, translation runs locally. The first model download requires an internet connection; it is not needed for inference afterward.
