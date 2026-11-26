@@ -2,7 +2,9 @@
 
 **Translate emails privately, right inside [Mailspring](https://getmailspring.com/).** This plugin runs translations on your device instead of sending email content to a cloud translation service.
 
-[![Latest release](https://img.shields.io/github/v/release/bispitalieri/mailspring-offline-translator?label=download)](https://github.com/bispitalieri/mailspring-offline-translator/releases/latest)
+<a href="https://github.com/bispitalieri/mailspring-offline-translator/releases/latest">
+  <img alt="Latest release" src="https://img.shields.io/github/v/release/bispitalieri/mailspring-offline-translator?label=download">
+</a>
 
 ## What it does
 
