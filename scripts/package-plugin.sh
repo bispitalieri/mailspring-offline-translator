@@ -22,7 +22,7 @@ mkdir -p "${DIST_DIR}/${PACKAGE_NAME}"
 
 # 3. Copy plugin payload (package.json, lib/, src/, helpers/, scripts/, docs)
 STAGED_PLUGIN="${DIST_DIR}/${PACKAGE_NAME}"
-cp -r package.json LICENSE lib helpers styles "$STAGED_PLUGIN/"
+cp -r package.json LICENSE lib helpers styles assets "$STAGED_PLUGIN/"
 
 # Mailspring does not install plugin npm dependencies when loading a release archive.
 npm install --prefix "$STAGED_PLUGIN" --omit=dev --no-audit --no-fund

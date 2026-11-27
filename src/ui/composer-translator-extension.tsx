@@ -11,7 +11,8 @@
  * - Preserves rich text styling and hyperlinks.
  */
 
-import {React} from 'mailspring-exports';
+import { React } from 'mailspring-exports';
+import { RetinaImg } from 'mailspring-component-kit';
 import { TranslationManager } from '../core/translation-manager';
 import { ProviderId } from '../types';
 import { getLanguageDisplayName, getCommonLanguages } from '../utils/bcp47';
@@ -91,7 +92,7 @@ export const ComposerTranslateModal: React.FC<{
         <div className="offline-translator-modal-header">
           <div className="offline-translator-modal-title-group">
             <span className="offline-translator-modal-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-label="translator" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
               </svg>
             </span>
@@ -134,19 +135,17 @@ export const ComposerTranslateModal: React.FC<{
                 </option>
               ))}
             </select>
-            <span className="offline-translator-toolbar-label">Provider:</span>
-            <select
-              value={selectedProvider}
-              onChange={(e) => setSelectedProvider(e.target.value as ProviderId)}
-            >
-              <option value="auto">Automatic</option>
-            </select>
             {hasTranslated && (
               <span className="offline-translator-detected-lang">
-                {sourceLang === 'auto'
-                  ? `Source detected: <strong>${getLanguageDisplayName(detectedLang || 'unknown')}</strong>`
-                  : `Source: <strong>${getLanguageDisplayName(sourceLang)}</strong>`
-                }
+                {sourceLang === 'auto' ? (
+                  <>
+                    Source detected: <strong>{getLanguageDisplayName(detectedLang || 'unknown')}</strong>
+                  </>
+                ) : (
+                  <>
+                    Source: <strong>{getLanguageDisplayName(sourceLang)}</strong>
+                  </>
+                )}
               </span>
             )}
           </div>
@@ -275,16 +274,21 @@ export const ComposerTranslatorButton: React.FC<{
   return (
     <>
       <button
-        type="button"
-        tabIndex={-1}
-        title="Translate Draft Offline"
         className="btn btn-toolbar offline-translator-composer-btn"
+        title="Translate Draft Offline"
+        tabIndex={-1}
         onClick={() => setModalOpen(true)}
       >
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-        </svg>
-        <span>Translate</span>
+        <RetinaImg
+          url={"mailspring://mailspring-offline-translator/assets/icon-compose-translation.png"}
+          name={"icon-compose-translation.png"}
+          mode={RetinaImg.Mode.ContentIsMask}
+        />
+        <span>&nbsp;</span>
+        <RetinaImg
+          name={"icon-composer-dropdown.png"}
+          mode={RetinaImg.Mode.ContentIsMask}
+        />
       </button>
 
       <ComposerTranslateModal
